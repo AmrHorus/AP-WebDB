@@ -44,8 +44,8 @@ const Forms = {
         table.fields.forEach(field => {
             if (field.type === 'auto_id') {
                 html += `<div class="form-group">
-                    <label>${field.name}</label>
-                    <input type="text" class="input-field" value="${record ? record[field.name] : '(Auto-generated)'}" disabled>
+                    <label>${this.escapeHTML(field.name)}</label>
+                    <input type="text" class="input-field" value="${record ? this.escapeHTML(String(record[field.name])) : '(Auto-generated)'}" disabled>
                 </div>`;
                 return;
             }
@@ -55,27 +55,27 @@ const Forms = {
 
             switch (field.type) {
                 case 'long_text':
-                    inputHtml = `<textarea class="input-field form-field-${field.name}" rows="4">${value || ''}</textarea>`;
+                    inputHtml = `<textarea class="input-field" data-field-name="${this.escapeAttrValue(field.name)}" rows="4">${this.escapeHTML(value || '')}</textarea>`;
                     break;
                 case 'boolean':
-                    inputHtml = `<input type="checkbox" class="form-field-${field.name}" ${value ? 'checked' : ''}>`;
+                    inputHtml = `<input type="checkbox" data-field-name="${this.escapeAttrValue(field.name)}" ${value ? 'checked' : ''}>`;
                     break;
                 case 'number':
                 case 'decimal':
-                    inputHtml = `<input type="number" class="input-field form-field-${field.name}" step="${field.type === 'decimal' ? '0.01' : '1'}" value="${value || ''}">`;
+                    inputHtml = `<input type="number" class="input-field" data-field-name="${this.escapeAttrValue(field.name)}" step="${field.type === 'decimal' ? '0.01' : '1'}" value="${this.escapeHTML(value || '')}">`;
                     break;
                 case 'date':
-                    inputHtml = `<input type="date" class="input-field form-field-${field.name}" value="${value || ''}">`;
+                    inputHtml = `<input type="date" class="input-field" data-field-name="${this.escapeAttrValue(field.name)}" value="${this.escapeHTML(value || '')}">`;
                     break;
                 case 'email':
-                    inputHtml = `<input type="email" class="input-field form-field-${field.name}" value="${value || ''}">`;
+                    inputHtml = `<input type="email" class="input-field" data-field-name="${this.escapeAttrValue(field.name)}" value="${this.escapeHTML(value || '')}">`;
                     break;
                 default:
-                    inputHtml = `<input type="text" class="input-field form-field-${field.name}" value="${value || ''}">`;
+                    inputHtml = `<input type="text" class="input-field" data-field-name="${this.escapeAttrValue(field.name)}" value="${this.escapeHTML(value || '')}">`;
             }
 
             html += `<div class="form-group">
-                <label>${field.name}${field.required ? ' *' : ''}</label>
+                <label>${this.escapeHTML(field.name)}${field.required ? ' *' : ''}</label>
                 ${inputHtml}
             </div>`;
         });
@@ -106,7 +106,7 @@ const Forms = {
             if (field.type === 'auto_id') return;
 
             let value;
-            const fieldEl = document.querySelector(`.form-field-${field.name}`);
+            const fieldEl = document.querySelector(`[data-field-name="${CSS.escape(field.name)}"]`);
             
             if (field.type === 'boolean') {
                 value = fieldEl.checked;
@@ -151,5 +151,19 @@ const Forms = {
         } catch (e) {
             UI.showToast(e.message, 'error');
         }
+    },
+
+    // Escape HTML special characters
+    escapeHTML(str) {
+        if (typeof str !== 'string') str = String(str);
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    },
+
+    // Escape attribute value for safe use in HTML attributes
+    escapeAttrValue(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 };

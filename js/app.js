@@ -335,26 +335,50 @@ const App = {
                 primaryKey: i === 0
             }));
 
-            // Create table with records
-            Database.createTable(tableName, fields);
-            const table = Database.getTableByName(tableName);
+            // Check if table already exists - import into existing table
+            let table = Database.getTableByName(tableName);
             
-            // Add records (skip auto_id field)
-            result.records.forEach(record => {
-                const newRecord = {};
-                table.fields.forEach(field => {
-                    if (field.type === 'auto_id') {
-                        const maxId = table.records.reduce((max, r) => {
-                            const val = parseInt(r[field.name]);
-                            return isNaN(val) ? max : Math.max(max, val);
-                        }, 0);
-                        newRecord[field.name] = (maxId + 1 + table.records.length).toString();
-                    } else {
-                        newRecord[field.name] = record[field.name];
-                    }
+            if (table) {
+                // Import into existing table - append records
+                result.records.forEach(record => {
+                    const newRecord = {};
+                    table.fields.forEach(field => {
+                        if (field.type === 'auto_id') {
+                            // Get current max ID and increment by 1
+                            const maxId = table.records.reduce((max, r) => {
+                                const val = parseInt(r[field.name]);
+                                return isNaN(val) ? max : Math.max(max, val);
+                            }, 0);
+                            newRecord[field.name] = (maxId + 1).toString();
+                        } else {
+                            newRecord[field.name] = record[field.name];
+                        }
+                    });
+                    table.records.push(newRecord);
                 });
-                table.records.push(newRecord);
-            });
+            } else {
+                // Create new table with records
+                Database.createTable(tableName, fields);
+                table = Database.getTableByName(tableName);
+                
+                // Add records (skip auto_id field)
+                result.records.forEach(record => {
+                    const newRecord = {};
+                    table.fields.forEach(field => {
+                        if (field.type === 'auto_id') {
+                            // Get current max ID and increment by 1 for each row
+                            const maxId = table.records.reduce((max, r) => {
+                                const val = parseInt(r[field.name]);
+                                return isNaN(val) ? max : Math.max(max, val);
+                            }, 0);
+                            newRecord[field.name] = (maxId + 1).toString();
+                        } else {
+                            newRecord[field.name] = record[field.name];
+                        }
+                    });
+                    table.records.push(newRecord);
+                });
+            }
 
             Database.saveDatabase();
             UI.showToast(`Imported ${result.records.length} records`, 'success');

@@ -88,7 +88,7 @@ const Records = {
         // Render header
         const thead = document.getElementById('data-grid-head');
         thead.innerHTML = '<tr>' + table.fields.map(f => 
-            `<th data-column="${f.name}">${f.name}${this.sortColumn === f.name ? (this.sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}</th>`
+            `<th data-column="${this.escapeAttrValue(f.name)}">${this.escapeHTML(f.name)}${this.sortColumn === f.name ? (this.sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}</th>`
         ).join('') + '<th>Actions</th></tr>';
 
         // Add sort handlers
@@ -120,7 +120,7 @@ const Records = {
                     if (f.type === 'boolean') {
                         return `<td>${value ? '✓' : ''}</td>`;
                     }
-                    return `<td>${value !== undefined && value !== null ? value : ''}</td>`;
+                    return `<td>${this.escapeHTML(value !== undefined && value !== null ? String(value) : '')}</td>`;
                 }).join('') + `
                     <td>
                         <button class="btn btn-sm edit-record-btn" data-index="${originalIndex}">Edit</button>
@@ -344,5 +344,19 @@ const Records = {
         } catch (e) {
             UI.showToast('Failed to export CSV: ' + e.message, 'error');
         }
+    },
+
+    // Escape HTML special characters
+    escapeHTML(str) {
+        if (typeof str !== 'string') str = String(str);
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    },
+
+    // Escape attribute value for safe use in HTML attributes
+    escapeAttrValue(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 };
