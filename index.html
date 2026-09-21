@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP WebDB — Alien Pharaoh Web Database</title>
+    <link rel="icon" type="image/png" href="assets/Logo.png">
+    <link rel="apple-touch-icon" href="assets/Logo.png">
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('apwebdb_theme') || 'system';
+            let theme = savedTheme;
+            if (savedTheme === 'system') {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <div id="app">
+        <!-- Toast Container -->
+        <div id="toast-container"></div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="view active">
+            <div class="start-content">
+                <div class="start-logo">
+                    <img src="assets/Logo.png" alt="AP WebDB Logo" class="start-logo-image">
+                    <h1><span class="logo-ap">AP</span> <span class="logo-webdb">WebDB</span></h1>
+                    <p class="start-subtitle">Alien Pharaoh Web Database</p>
+                </div>
+                <p class="start-description">Create and manage your own database directly in your browser.</p>
+                <div class="start-buttons">
+                    <button id="btn-create-db" class="btn btn-primary btn-large">Create Database</button>
+                    <button id="btn-open-db" class="btn btn-large">Open Saved Database</button>
+                    <button id="btn-load-demo" class="btn btn-large">Load Demo Database</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application View -->
+        <div id="app-view" class="view">
+            <header class="app-header">
+                <div class="header-left">
+                    <button id="btn-back-dashboard" class="btn btn-icon" title="Back to Dashboard">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </button>
+                    <div class="project-info">
+                        <h2 id="project-name">Untitled Database</h2>
+                        <span id="save-status" class="save-status">Saved</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="search-container">
+                        <input type="text" id="global-search" class="search-input" placeholder="Search... (Ctrl+F)">
+                    </div>
+                    <button id="btn-theme-toggle" class="btn btn-icon" title="Toggle Theme">
+                        <img src="assets/Sun.jpg" alt="Light Mode" class="theme-icon icon-sun">
+                        <img src="assets/Moon.jpg" alt="Dark Mode" class="theme-icon icon-moon">
+                    </button>
+                    <button id="btn-app-settings" class="btn btn-icon" title="Settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                    <button id="btn-menu-toggle" class="btn btn-icon mobile-only" title="Menu">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            
+            <div class="app-body">
+                <aside class="sidebar" id="sidebar">
+                    <nav class="sidebar-nav">
+                        <div class="nav-section">
+                            <h4>Database</h4>
+                            <ul id="tables-list" class="tables-list"></ul>
+                            <button id="btn-new-table-sidebar" class="btn btn-sidebar">+ New Table</button>
+                        </div>
+                        
+                        <div class="nav-section">
+                            <h4>Tools</h4>
+                            <ul class="tools-list">
+                                <li><button id="btn-query-builder-nav" class="btn-tool">Query Builder</button></li>
+                                <li><button id="btn-form-builder-nav" class="btn-tool">Forms</button></li>
+                                <li><button id="btn-relationships-nav" class="btn-tool">Relationships</button></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="nav-section">
+                            <h4>Data</h4>
+                            <ul class="tools-list">
+                                <li><button id="btn-import-csv-nav" class="btn-tool">Import CSV</button></li>
+                                <li><button id="btn-export-csv-nav" class="btn-tool">Export CSV</button></li>
+                            </ul>
+                        </div>
+                    </nav>
+                </aside>
+                
+                <main class="workspace" id="workspace">
+                    <!-- Overview Tab -->
+                    <div id="tab-overview" class="tab-content active">
+                        <div class="workspace-header">
+                            <h3>Database Overview</h3>
+                        </div>
+                        <div class="stats-cards">
+                            <div class="stat-card">
+                                <span class="stat-value" id="stat-tables">0</span>
+                                <span class="stat-label">Tables</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="stat-records">0</span>
+                                <span class="stat-label">Records</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="stat-relationships">0</span>
+                                <span class="stat-label">Relationships</span>
+                            </div>
+                        </div>
+                        <div class="tables-overview">
+                            <h3>Your Tables</h3>
+                            <div id="tables-overview-list" class="tables-overview-list"></div>
+                            <button id="btn-create-table-overview" class="btn btn-primary">+ Create Table</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Table Designer Tab -->
+                    <div id="tab-table-designer" class="tab-content">
+                        <div class="tab-header">
+                            <h3 id="designer-table-name">Table Designer</h3>
+                            <div class="tab-actions">
+                                <button id="btn-save-table" class="btn btn-primary">Save Table</button>
+                                <button id="btn-close-designer" class="btn">Close</button>
+                            </div>
+                        </div>
+                        <div class="designer-content">
+                            <div class="form-group">
+                                <label for="table-name-input">Table Name</label>
+                                <input type="text" id="table-name-input" class="input-field" placeholder="Enter table name">
+                            </div>
+                            <div class="fields-section">
+                                <h4>Fields</h4>
+                                <div class="fields-table-wrapper">
+                                    <table class="fields-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Field Name</th>
+                                                <th>Type</th>
+                                                <th>Required</th>
+                                                <th>Primary Key</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="fields-table-body"></tbody>
+                                    </table>
+                                </div>
+                                <button id="btn-add-field" class="btn btn-secondary">+ Add Field</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data View Tab -->
+                    <div id="tab-data-view" class="tab-content">
+                        <div class="tab-header">
+                            <h3 id="data-view-table-name">Table Name</h3>
+                            <div class="tab-actions data-view-actions">
+                                <input type="text" id="search-input" class="input-field search-input" placeholder="Search...">
+                                <select id="filter-column" class="input-field"></select>
+                                <select id="filter-operator" class="input-field">
+                                    <option value="equals">Equals</option>
+                                    <option value="not_equals">Not Equals</option>
+                                    <option value="greater_than">Greater Than</option>
+                                    <option value="less_than">Less Than</option>
+                                    <option value="greater_equal">Greater Than or Equal</option>
+                                    <option value="less_equal">Less Than or Equal</option>
+                                    <option value="contains">Contains</option>
+                                    <option value="starts_with">Starts With</option>
+                                    <option value="ends_with">Ends With</option>
+                                </select>
+                                <input type="text" id="filter-value" class="input-field" placeholder="Value">
+                                <button id="btn-apply-filter" class="btn">Filter</button>
+                                <button id="btn-clear-filter" class="btn">Clear</button>
+                                <button id="btn-add-record" class="btn btn-primary">+ Add Record</button>
+                                <button id="btn-export-table-csv" class="btn btn-secondary">Export</button>
+                            </div>
+                        </div>
+                        <div class="filter-chips" id="filter-chips"></div>
+                        <div class="data-grid-container">
+                            <table class="data-grid" id="data-grid">
+                                <thead id="data-grid-head"></thead>
+                                <tbody id="data-grid-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="table-footer" id="table-footer">
+                            <span id="record-count">0 records</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Query Builder Tab -->
+                    <div id="tab-query-builder" class="tab-content">
+                        <div class="tab-header">
+                            <h3>Query Builder</h3>
+                        </div>
+                        <div class="query-builder-content">
+                            <div class="query-section">
+                                <div class="form-group">
+                                    <label>Select Table</label>
+                                    <select id="query-table-select" class="input-field"></select>
+                                </div>
+                                <div id="query-conditions-container"></div>
+                                <button id="btn-add-condition" class="btn btn-secondary">+ Add Condition</button>
+                                <div class="query-actions">
+                                    <button id="btn-run-query" class="btn btn-primary">Run Query</button>
+                                    <button id="btn-clear-query" class="btn">Clear</button>
+                                </div>
+                            </div>
+                            <div class="query-results">
+                                <h4>Results</h4>
+                                <div id="query-results-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Forms Tab -->
+                    <div id="tab-forms" class="tab-content">
+                        <div class="tab-header">
+                            <h3>Form Builder</h3>
+                        </div>
+                        <div class="forms-content">
+                            <div class="form-group">
+                                <label>Select Table</label>
+                                <select id="form-table-select" class="input-field"></select>
+                            </div>
+                            <div id="form-generator-container"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Relationships Tab -->
+                    <div id="tab-relationships" class="tab-content">
+                        <div class="tab-header">
+                            <h3>Relationships</h3>
+                        </div>
+                        <div class="relationships-content">
+                            <div class="relationship-form">
+                                <div class="form-group">
+                                    <label>Source Table</label>
+                                    <select id="rel-source-table" class="input-field"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Source Field</label>
+                                    <select id="rel-source-field" class="input-field"></select>
+                                </div>
+                                <div class="form-arrow">→</div>
+                                <div class="form-group">
+                                    <label>Target Table</label>
+                                    <select id="rel-target-table" class="input-field"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Target Field</label>
+                                    <select id="rel-target-field" class="input-field"></select>
+                                </div>
+                                <button id="btn-create-relationship" class="btn btn-primary">Create Relationship</button>
+                            </div>
+                            <div class="relationships-list">
+                                <h4>Existing Relationships</h4>
+                                <div id="relationships-list-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Import CSV Tab -->
+                    <div id="tab-import-csv" class="tab-content">
+                        <div class="tab-header">
+                            <h3>Import CSV</h3>
+                        </div>
+                        <div class="import-content">
+                            <div class="form-group">
+                                <label for="csv-file-input">Select CSV File</label>
+                                <input type="file" id="csv-file-input" class="input-field" accept=".csv">
+                            </div>
+                            <div class="form-group">
+                                <label for="csv-table-name">Table Name</label>
+                                <input type="text" id="csv-table-name" class="input-field" placeholder="Enter table name">
+                            </div>
+                            <div id="csv-preview-container"></div>
+                            <button id="btn-import-csv-confirm" class="btn btn-primary">Import CSV</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="modal-overlay" class="modal-overlay"></div>
+        
+        <div id="modal-new-database" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New Database</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="database-name-input">Database Name</label>
+                        <input type="text" id="database-name-input" class="input-field" placeholder="Enter database name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn modal-cancel">Cancel</button>
+                    <button id="btn-create-database-confirm" class="btn btn-primary">Create Database</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="modal-record-form" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="record-form-title">Add Record</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body" id="record-form-body"></div>
+                <div class="modal-footer">
+                    <button class="btn modal-cancel">Cancel</button>
+                    <button id="btn-save-record" class="btn btn-primary">Save Record</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="modal-confirm" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="confirm-title">Confirm</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirm-message"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn modal-cancel">Cancel</button>
+                    <button id="btn-confirm-action" class="btn btn-danger">Confirm</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="modal-settings" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h4>Theme</h4>
+                        <div class="theme-options">
+                            <button class="theme-option-btn" data-theme="light" title="Light Mode">
+                                <img src="assets/Sun.jpg" alt="Light">
+                            </button>
+                            <button class="theme-option-btn" data-theme="dark" title="Dark Mode">
+                                <img src="assets/Moon.jpg" alt="Dark">
+                            </button>
+                            <button class="theme-option-btn" data-theme="system" title="System">
+                                <span>⚙</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>Data</h4>
+                        <button id="btn-clear-local-data" class="btn btn-danger">Clear Local Data</button>
+                    </div>
+                    <div class="settings-section">
+                        <h4>About</h4>
+                        <p><strong>AP WebDB</strong></p>
+                        <p>Alien Pharaoh Web Database</p>
+                        <p class="text-muted">A browser-based educational database management system.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/csv.js"></script>
+    <script src="js/tables.js"></script>
+    <script src="js/records.js"></script>
+    <script src="js/queries.js"></script>
+    <script src="js/forms.js"></script>
+    <script src="js/relationships.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
