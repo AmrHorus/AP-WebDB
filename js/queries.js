@@ -133,15 +133,26 @@ const Queries = {
         const table = Database.getTable(tableId);
         let results = [...table.records];
 
-        // Apply conditions
+        // Apply conditions with proper AND/OR logic
         results = results.filter(record => {
-            return this.conditions.every((cond, index) => {
+            let result = true;
+            
+            for (let i = 0; i < this.conditions.length; i++) {
+                const cond = this.conditions[i];
                 const value = record[cond.field];
                 const matches = Records.evaluateFilter(value, cond.operator, cond.value);
                 
-                if (index === 0) return matches;
-                return cond.logic === 'AND' ? matches : !matches;
-            });
+                if (i === 0) {
+                    result = matches;
+                } else if (cond.logic === 'AND') {
+                    result = result && matches;
+                } else {
+                    // OR logic
+                    result = result || matches;
+                }
+            }
+            
+            return result;
         });
 
         // Render results
@@ -154,7 +165,7 @@ const Queries = {
 
         let html = '<div class="data-grid-container"><table class="data-grid"><thead><tr>';
         table.fields.forEach(f => {
-            html += `<th>${f.name}</th>`;
+            html += `<th>${this.escapeHTML(f.name)}</th>`;
         });
         html += '</tr></thead><tbody>';
 
@@ -162,7 +173,7 @@ const Queries = {
             html += '<tr>';
             table.fields.forEach(f => {
                 const value = record[f.name];
-                html += `<td>${value !== undefined && value !== null ? value : ''}</td>`;
+                html += `<td>${this.escapeHTML(value !== undefined && value !== null ? String(value) : '')}</td>`;
             });
             html += '</tr>';
         });
@@ -171,6 +182,20 @@ const Queries = {
         html += `<p style="margin-top:10px;">${results.length} result${results.length !== 1 ? 's' : ''} found</p>`;
         
         container.innerHTML = html;
+    },
+
+    // Escape HTML special characters
+    escapeHTML(str) {
+        if (typeof str !== 'string') str = String(str);
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    },
+
+    // Escape attribute value for safe use in HTML attributes
+    escapeAttrValue(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     },
 
     clearQuery() {
