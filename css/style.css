@@ -799,6 +799,30 @@ html[dir='rtl'] .rel-node { direction: ltr; unicode-bidi: embed; }
 }
 .segmented button.active { background: var(--primary); color: var(--on-primary); }
 
+
+/* ---------- Database Center top bar (dbCenter.html) ---------- */
+.topbar .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text);
+    font-size: 1.05rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--transition);
+}
+.topbar .icon-btn:hover { background: var(--surface-2); }
+.topbar .icon-btn:disabled { opacity: .4; cursor: default; }
+.topbar .icon-btn img.theme-icon { width: 20px; height: 20px; object-fit: contain; }
+.topbar .brand img.logo { height: 56px; width: auto; max-width: 220px; }
+.topbar .lang-switcher button { padding: 6px 10px; min-height: 34px; }
+
 .sidebar-backdrop { display: none; }
 .mobile-only { display: none !important; }
 
