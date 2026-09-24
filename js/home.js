@@ -161,7 +161,7 @@ const Home = {
     },
 
     goToWorkspace(dbId) {
-        window.location.href = 'database.html?db=' + encodeURIComponent(dbId);
+        window.location.href = 'dbCenter.html?db=' + encodeURIComponent(dbId);
     },
 
     importFile(file) {
