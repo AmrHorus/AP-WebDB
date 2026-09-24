@@ -1,163 +1,118 @@
-// CSV Module - Import and Export functionality
-const CSV = {
-    // Export table to CSV
-    exportTable(table) {
-        if (!table || !table.fields || !table.records) {
-            throw new Error('Invalid table data');
-        }
-
-        const headers = table.fields.map(f => this.escapeCSVValue(f.name));
-        const rows = table.records.map(record => {
-            return table.fields.map(field => {
-                const value = record[field.name] !== undefined ? record[field.name] : '';
-                return this.escapeCSVValue(value);
-            });
-        });
-
-        // Add UTF-8 BOM for proper Arabic text support
-        const bom = '\uFEFF';
-        const csvContent = bom + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        
-        return csvContent;
-    },
-
-    // Escape a value for CSV
-    escapeCSVValue(value) {
-        if (value === null || value === undefined) {
-            return '';
-        }
-        
+// CSV parsing / generation and file download helpers.
+const Csv = {
+    escapeValue(value) {
+        if (value === null || value === undefined) return '';
         const str = String(value);
-        
-        // If the value contains comma, quote, or newline, wrap in quotes
-        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-            // Escape quotes by doubling them
+        if (/[",\n\r]/.test(str)) {
             return '"' + str.replace(/"/g, '""') + '"';
         }
-        
         return str;
     },
 
-    // Parse CSV content
-    parseCSV(content) {
-        // Remove UTF-8 BOM if present
-        if (content.charCodeAt(0) === 0xFEFF) {
-            content = content.slice(1);
-        }
-
-        const lines = [];
-        let currentLine = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < content.length; i++) {
-            const char = content[i];
-            const nextChar = content[i + 1];
-
-            if (inQuotes) {
-                currentLine += char;
-                if (char === '"' && nextChar === '"') {
-                    currentLine += nextChar;
-                    i++;
-                } else if (char === '"') {
-                    inQuotes = false;
-                }
-            } else {
-                if (char === '"') {
-                    inQuotes = true;
-                    currentLine += char;
-                } else if (char === '\n') {
-                    lines.push(currentLine);
-                    currentLine = '';
-                } else if (char === '\r') {
-                    // Skip carriage return
-                } else {
-                    currentLine += char;
-                }
-            }
-        }
-
-        if (currentLine) {
-            lines.push(currentLine);
-        }
-
-        if (lines.length === 0) {
-            throw new Error('Empty CSV file');
-        }
-
-        // Parse header line
-        const headers = this.parseCSVLine(lines[0]);
-        
-        // Parse data lines
-        const records = [];
-        for (let i = 1; i < lines.length; i++) {
-            const values = this.parseCSVLine(lines[i]);
-            if (values.length === headers.length) {
-                const record = {};
-                headers.forEach((header, index) => {
-                    record[header.trim()] = values[index].trim();
-                });
-                records.push(record);
-            }
-        }
-
-        return { headers, records };
+    exportTable(table) {
+        if (!table || !Array.isArray(table.fields)) throw new Error('Invalid table');
+        const headers = table.fields.map((f) => this.escapeValue(f.name));
+        const rows = (table.records || []).map((rec) =>
+            table.fields.map((f) => {
+                let v = rec[f.name];
+                if (f.type === 'boolean') v = v ? 'true' : 'false';
+                return this.escapeValue(v);
+            }).join(',')
+        );
+        // UTF-8 BOM so spreadsheet apps read Arabic text correctly
+        return '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
     },
 
-    // Parse a single CSV line
-    parseCSVLine(line) {
+    parseLine(line) {
         const values = [];
-        let currentValue = '';
+        let cur = '';
         let inQuotes = false;
-
         for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            const nextChar = line[i + 1];
-
+            const ch = line[i];
             if (inQuotes) {
-                if (char === '"' && nextChar === '"') {
-                    currentValue += '"';
-                    i++;
-                } else if (char === '"') {
-                    inQuotes = false;
-                } else {
-                    currentValue += char;
-                }
+                if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+                else if (ch === '"') inQuotes = false;
+                else cur += ch;
             } else {
-                if (char === '"') {
-                    inQuotes = true;
-                } else if (char === ',') {
-                    values.push(currentValue);
-                    currentValue = '';
-                } else {
-                    currentValue += char;
-                }
+                if (ch === '"') inQuotes = true;
+                else if (ch === ',') { values.push(cur); cur = ''; }
+                else cur += ch;
             }
         }
-
-        values.push(currentValue);
+        values.push(cur);
         return values;
     },
 
-    // Download CSV file
-    downloadCSV(content, filename) {
-        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+    parse(content) {
+        if (content.charCodeAt(0) === 0xfeff) content = content.slice(1);
+        // split into logical lines while respecting quoted newlines
+        const lines = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < content.length; i++) {
+            const ch = content[i];
+            if (ch === '"') { inQuotes = !inQuotes; cur += ch; continue; }
+            if (!inQuotes && (ch === '\n' || ch === '\r')) {
+                if (ch === '\r' && content[i + 1] === '\n') i++;
+                lines.push(cur);
+                cur = '';
+                continue;
+            }
+            cur += ch;
+        }
+        if (cur.trim() !== '') lines.push(cur);
+
+        const nonEmpty = lines.filter((l) => l.trim() !== '');
+        if (nonEmpty.length === 0) throw new Error('empty');
+        const headers = this.parseLine(nonEmpty[0]).map((h) => h.trim());
+        if (headers.length === 0 || (headers.length === 1 && headers[0] === '')) throw new Error('empty');
+        const records = [];
+        for (let i = 1; i < nonEmpty.length; i++) {
+            const values = this.parseLine(nonEmpty[i]);
+            const rec = {};
+            headers.forEach((h, idx) => { rec[h] = (values[idx] !== undefined ? values[idx] : '').trim(); });
+            records.push(rec);
+        }
+        return { headers, records };
     },
 
-    // Read CSV file from input
+    guessType(headerName, sampleValues) {
+        const lower = String(headerName).toLowerCase();
+        const filled = sampleValues.filter((v) => v !== '');
+        if (filled.length === 0) return 'text';
+        const allInt = filled.every((v) => /^-?\d+$/.test(v));
+        if (allInt) return 'integer';
+        if (filled.every((v) => /^-?\d+(\.\d+)?$/.test(v))) return 'decimal';
+        if (filled.every((v) => /^\d{4}-\d{2}-\d{2}$/.test(v))) return 'date';
+        if (filled.every((v) => /^(true|false)$/i.test(v))) return 'boolean';
+        if (filled.every((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))) return 'email';
+        if (filled.every((v) => /^https?:\/\//.test(v))) return 'url';
+        void lower;
+        return 'text';
+    },
+
     readFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = (e) => reject(e);
+            reader.onerror = () => reject(reader.error || new Error('read error'));
             reader.readAsText(file, 'UTF-8');
         });
+    },
+
+    download(filename, content, mime) {
+        const blob = new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
+    slugify(name) {
+        return String(name).replace(/[^\w\u0600-\u06FF-]+/g, '_').replace(/^_+|_+$/g, '') || 'table';
     }
 };

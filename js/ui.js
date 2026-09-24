@@ -1,152 +1,140 @@
-// UI Module - User interface utilities
+// UI helpers: toasts, modal dialogs, confirmations and prompts.
 const UI = {
-    init() {
-        this.bindEvents();
-    },
-
-    bindEvents() {
-        // Modal close handlers
-        document.querySelectorAll('.modal-close').forEach(btn => {
-            btn.addEventListener('click', () => this.closeAllModals());
-        });
-
-        document.querySelectorAll('.modal-cancel').forEach(btn => {
-            btn.addEventListener('click', () => this.closeAllModals());
-        });
-
-        document.getElementById('modal-overlay').addEventListener('click', () => {
-            this.closeAllModals();
-        });
-
-        // Theme toggle
-        document.getElementById('btn-theme-toggle').addEventListener('click', () => this.toggleTheme());
-
-        // Settings modal
-        document.getElementById('btn-app-settings').addEventListener('click', () => this.openSettings());
-        document.getElementById('btn-clear-local-data').addEventListener('click', () => this.clearLocalData());
-
-        // Theme options in settings
-        document.querySelectorAll('.theme-option-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const theme = e.currentTarget.dataset.theme;
-                this.setTheme(theme);
-            });
-        });
-
-        // Mobile menu toggle
-        document.getElementById('btn-menu-toggle').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('active');
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'f') {
-                e.preventDefault();
-                document.getElementById('global-search').focus();
-            }
-            if (e.key === 'Escape') {
-                this.closeAllModals();
-            }
-        });
-    },
-
-    showToast(message, type = 'info') {
+    toast(message, type = 'info', duration = 3200) {
         const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'toast toast-' + type;
+        el.setAttribute('role', 'status');
+        el.textContent = message;
+        container.appendChild(el);
+        // keep max 4 toasts visible
+        while (container.children.length > 4) container.removeChild(container.firstChild);
         setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+            el.classList.add('hide');
+            setTimeout(() => el.remove(), 350);
+        }, duration);
     },
 
-    openModal(modalId) {
-        document.getElementById('modal-overlay').classList.add('active');
-        document.getElementById(modalId).classList.add('active');
-        document.body.style.overflow = 'hidden';
-    },
+    _activeModal: null,
+    _lastFocus: null,
 
-    closeModal(modalId) {
-        document.getElementById(modalId).classList.remove('active');
-        if (!document.querySelector('.modal.active')) {
-            document.getElementById('modal-overlay').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    },
-
-    closeAllModals() {
-        document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
-        document.getElementById('modal-overlay').classList.remove('active');
-        document.body.style.overflow = '';
-    },
-
-    showConfirm(title, message, onConfirm) {
-        document.getElementById('confirm-title').textContent = title;
-        document.getElementById('confirm-message').textContent = message;
-        
-        const confirmBtn = document.getElementById('btn-confirm-action');
-        confirmBtn.onclick = () => {
-            this.closeAllModals();
-            onConfirm();
-        };
-        
-        this.openModal('modal-confirm');
-    },
-
-    setTheme(theme) {
-        localStorage.setItem('apwebdb_theme', theme);
-        
-        let actualTheme = theme;
-        if (theme === 'system') {
-            actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        
-        document.documentElement.setAttribute('data-theme', actualTheme);
-        
-        // Update active state on theme buttons
-        document.querySelectorAll('.theme-option-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.theme === theme);
+    openModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        this.closeModal();
+        this._lastFocus = document.activeElement;
+        modal.hidden = false;
+        modal.classList.add('open');
+        document.body.classList.add('modal-open');
+        this._activeModal = modal;
+        const focusable = modal.querySelector('input:not([disabled]), select, textarea, button:not([disabled])');
+        if (focusable) setTimeout(() => focusable.focus(), 60);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) UI.closeModal();
         });
     },
 
-    toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const newTheme = current === 'dark' ? 'light' : 'dark';
-        
-        // Save the explicit choice (not system)
-        localStorage.setItem('apwebdb_theme', newTheme);
-        document.documentElement.setAttribute('data-theme', newTheme);
+    closeModal() {
+        if (!this._activeModal) return;
+        this._activeModal.classList.remove('open');
+        this._activeModal.hidden = true;
+        this._activeModal = null;
+        if (!document.querySelector('.modal.open')) document.body.classList.remove('modal-open');
+        if (this._lastFocus && this._lastFocus.focus) this._lastFocus.focus();
     },
 
-    openSettings() {
-        const savedTheme = localStorage.getItem('apwebdb_theme') || 'system';
-        
-        document.querySelectorAll('.theme-option-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.theme === savedTheme);
-        });
-        
-        this.openModal('modal-settings');
-    },
-
-    clearLocalData() {
-        this.showConfirm(
-            'Clear All Data?',
-            'This will permanently delete all databases and settings. This action cannot be undone.',
-            () => {
-                Storage.clearAll();
-                location.reload();
+    // Confirmation dialog returning a Promise<boolean>
+    confirm(titleKey, message, opts) {
+        opts = opts || {};
+        return new Promise((resolve) => {
+            const modal = document.getElementById('modal-confirm');
+            const titleEl = modal.querySelector('.modal-title');
+            const msgEl = document.getElementById('confirm-message');
+            const okBtn = document.getElementById('btn-confirm-ok');
+            const cancelBtn = document.getElementById('btn-confirm-cancel');
+            titleEl.textContent = typeof titleKey === 'string' && I18N.en[titleKey] ? t(titleKey) : titleKey;
+            msgEl.textContent = message;
+            okBtn.textContent = t(opts.danger !== false ? 'deleteButton' : 'confirmButton');
+            okBtn.className = 'btn ' + (opts.danger !== false ? 'btn-danger' : 'btn-primary');
+            cancelBtn.textContent = t('cancel');
+            const prevHandler = modal._handler;
+            if (prevHandler) {
+                okBtn.removeEventListener('click', prevHandler.ok);
+                cancelBtn.removeEventListener('click', prevHandler.cancel);
             }
-        );
+            const ok = () => { cleanup(); resolve(true); };
+            const cancel = () => { cleanup(); resolve(false); };
+            function cleanup() {
+                okBtn.removeEventListener('click', ok);
+                cancelBtn.removeEventListener('click', cancel);
+                UI.closeModal();
+            }
+            okBtn.addEventListener('click', ok);
+            cancelBtn.addEventListener('click', cancel);
+            modal._handler = { ok, cancel };
+            UI.openModal('modal-confirm');
+        });
     },
 
-    updateSaveStatus(status) {
-        const el = document.getElementById('save-status');
-        if (!el) return;
-        
-        el.textContent = status;
-        el.style.color = status === 'Saved' ? 'var(--success)' : 'var(--text-muted)';
+    // Prompt dialog with one text input; resolves to string or null
+    prompt(titleKey, value, placeholderKey) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('modal-prompt');
+            const titleEl = modal.querySelector('.modal-title');
+            const input = document.getElementById('prompt-input');
+            const okBtn = document.getElementById('btn-prompt-ok');
+            const cancelBtn = document.getElementById('btn-prompt-cancel');
+            const form = document.getElementById('prompt-form');
+            titleEl.textContent = typeof titleKey === 'string' && I18N.en[titleKey] ? t(titleKey) : titleKey;
+            input.value = value || '';
+            input.placeholder = placeholderKey ? t(placeholderKey) : '';
+            let done = false;
+            const finish = (val) => {
+                if (done) return;
+                done = true;
+                form.onsubmit = null;
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                UI.closeModal();
+                resolve(val);
+            };
+            okBtn.onclick = () => finish(input.value.trim() || null);
+            cancelBtn.onclick = () => finish(null);
+            form.onsubmit = (e) => { e.preventDefault(); finish(input.value.trim() || null); };
+            UI.openModal('modal-prompt');
+        });
+    },
+
+    // Generic error display for thrown errors during user actions
+    handleError(err, fallbackKey) {
+        console.error(err);
+        const msg = err && err.message && !/^[A-Za-z ]*Error/.test(err.message.split('\n')[0])
+            ? err.message
+            : t(fallbackKey || 'errUnknown');
+        this.toast(msg, 'error');
+    },
+
+    fieldTypeLabel(type) {
+        const keys = {
+            auto_id: 'typeAutoId',
+            text: 'typeText',
+            long_text: 'typeLongText',
+            integer: 'typeInteger',
+            decimal: 'typeDecimal',
+            number: 'typeNumber',
+            boolean: 'typeBoolean',
+            date: 'typeDate',
+            datetime: 'typeDateTime',
+            email: 'typeEmail',
+            url: 'typeUrl'
+        };
+        return keys[type] ? t(keys[type]) : type;
+    },
+
+    formatCellValue(field, value) {
+        if (value === undefined || value === null || value === '') return '';
+        if (field.type === 'boolean') return value ? t('yesValue') : t('noValue');
+        return String(value);
     }
 };
