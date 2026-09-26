@@ -2,7 +2,9 @@
 // - Parsing is a single-pass state machine (O(n)) with sanitized cells.
 // - Generation streams chunks into the Blob to stay memory-friendly on big tables.
 // - Optional Web Worker acceleration with automatic main-thread fallback.
-import Sanitize from './sanitize.js';
+
+
+import { Sanitize } from './sanitize.js';
 
 const LARGE_FILE_BYTES = 512 * 1024;   // above this, try the worker
 const LARGE_ROW_COUNT = 5000;          // above this, chunked blob assembly

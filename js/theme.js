@@ -1,6 +1,8 @@
 // Theme, language (i18n + RTL) and small preference helpers.
 // Preferences live in localStorage; database content lives in IndexedDB.
-import I18N from './i18n.js';
+
+
+import { I18N } from './i18n.js';
 
 const Prefs = {
     THEME_KEY: 'apwebdb_theme',

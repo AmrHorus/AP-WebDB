@@ -1,10 +1,12 @@
 // Database engine: schema model, CRUD operations, validation and undo/redo.
 // The engine keeps one "open" database in memory and persists it via IDB.
-import Utils from './utils.js';
-import IDB from './idb.js';
-import UI from './ui.js';
-import Errors from './errors.js';
+
+
+import { Errors } from './errors.js';
+import { IDB } from './idb.js';
 import { t } from './theme.js';
+import { UI } from './ui.js';
+import { Utils } from './utils.js';
 
 const Engine = {
     db: null,            // currently open database object
@@ -29,6 +31,9 @@ const Engine = {
     /* ---------- tiny event bus ---------- */
     on(event, fn) {
         (this.listeners[event] = this.listeners[event] || []).push(fn);
+    },
+    off(event, fn) {
+        this._listeners[event] = (this._listeners[event] || []).filter((f) => f !== fn);
     },
     emit(event, payload) {
         (this.listeners[event] || []).forEach((fn) => fn(payload));

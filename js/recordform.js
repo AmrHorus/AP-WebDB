@@ -1,5 +1,10 @@
 // Shared record form used by the datasheet and the Forms view.
 // Builds type-aware inputs, validates through Engine and saves via Engine.
+
+import { Engine } from './engine.js';
+import { UI } from './ui.js';
+import { Utils } from './utils.js';
+
 const RecordForm = {
     tableId: null,
     recordIndex: null,   // null => create new record

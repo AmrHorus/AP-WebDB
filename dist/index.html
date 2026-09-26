@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP WebDB — Alien Pharaoh Web Database</title>
+    <meta name="description" content="AP-WebDB: a lightweight, offline-first database manager that runs entirely in your browser. No server, no installation — your data never leaves your device.">
+    <link rel="icon" type="image/png" href="./assets/Logo.png">
+    <link rel="apple-touch-icon" href="./assets/Logo.png">
+    <script>
+        // Apply saved theme before first paint (no flash of wrong theme).
+        (function () {
+            var savedTheme = localStorage.getItem('apwebdb_theme') || 'system';
+            var theme = savedTheme;
+            if (savedTheme === 'system') {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+            var lang = localStorage.getItem('apwebdb_lang') || 'en';
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        })();
+    </script>
+  <script type="module" crossorigin src="./js/index.js"></script>
+  <link rel="modulepreload" crossorigin href="./js/bootstrap.js">
+  <link rel="stylesheet" crossorigin href="./css/style.css">
+</head>
+<body data-title-key="appTitle">
+    <div id="app" class="landing">
+        <!-- Toast container (shared UI module) -->
+        <div id="toast-container" aria-live="polite"></div>
+
+        <!-- Top bar -->
+        <header class="landing-header">
+            <a class="brand" href="index.html" aria-label="AP-WebDB home">
+                <img src="./assets/Logo.png" alt="AP WebDB logo" class="brand-logo">
+                <span class="brand-name"><span class="logo-ap">AP</span> <span class="logo-webdb">WebDB</span></span>
+            </a>
+            <nav class="landing-actions" aria-label="Preferences">
+                <div class="lang-switch" role="group" aria-label="Language">
+                    <button type="button" class="btn btn-ghost btn-sm" data-lang-btn="en" aria-pressed="true">EN</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-lang-btn="ar" aria-pressed="false">عربي</button>
+                </div>
+                <button id="btn-theme" type="button" class="btn btn-ghost btn-sm" data-i18n-title="theme" aria-label="Theme">
+                    <img src="./assets/Moon.png" alt="" class="theme-icon">
+                </button>
+                <a class="btn btn-ghost btn-sm" href="https://github.com/amrhorus/AP-WebDB" target="_blank" rel="noopener noreferrer" data-i18n="githubLink">GitHub</a>
+            </nav>
+        </header>
+
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-logo">
+                <img src="./assets/Logo.png" alt="AP WebDB Logo" class="hero-logo-image">
+            </div>
+            <h1 class="hero-title"><span class="logo-ap">AP</span> <span class="logo-webdb">WebDB</span></h1>
+            <p class="hero-subtitle" data-i18n="tagline">Alien Pharaoh Web Database</p>
+            <p class="hero-heading" data-i18n="landingHeading">A lightweight database that lives in your browser</p>
+            <p class="hero-description" data-i18n="landingDescription">Create tables, enter records, link them with relationships and run visual queries — no server, no installation. Your data stays on your device.</p>
+            <div class="hero-buttons">
+                <button id="btn-create-db" class="btn btn-primary btn-large" data-i18n="createDatabase">Create Database</button>
+                <a id="btn-open-center" class="btn btn-secondary btn-large" href="dbCenter.html" data-i18n="openDatabaseCenter">Open Database Center</a>
+                <button id="btn-open-db" class="btn btn-large" data-i18n="openDatabase">Open Database</button>
+                <button id="btn-demo" class="btn btn-large" data-i18n="loadDemo">Load Demo Database</button>
+                <button id="btn-import-home" class="btn btn-ghost btn-large" data-i18n="importBackup">Import Backup</button>
+            </div>
+        </section>
+
+        <!-- Recent databases -->
+        <section class="recent" aria-labelledby="recent-heading">
+            <h2 id="recent-heading" data-i18n="recentDatabases">Recent databases</h2>
+            <div id="recent-empty" class="empty-state" hidden>
+                <p data-i18n="noDatabasesYet">No databases yet. Create one to get started.</p>
+                <button class="btn btn-primary" onclick="document.getElementById('btn-create-db').click()" data-i18n="createDatabase">Create Database</button>
+            </div>
+            <div id="recent-list" class="db-grid"></div>
+        </section>
+
+        <!-- Features -->
+        <section class="features" aria-labelledby="features-heading">
+            <h2 id="features-heading" data-i18n="featuresTitle">Everything you need, nothing you don’t</h2>
+            <div class="feature-grid">
+                <article class="feature-card"><h3 data-i18n="featureTablesTitle">Tables &amp; Fields</h3><p data-i18n="featureTablesText">Design tables with typed fields, primary keys and auto-increment IDs.</p></article>
+                <article class="feature-card"><h3 data-i18n="featureRecordsTitle">Records &amp; Forms</h3><p data-i18n="featureRecordsText">Add, edit, search, sort and filter records with type-aware forms.</p></article>
+                <article class="feature-card"><h3 data-i18n="featureRelTitle">Relationships</h3><p data-i18n="featureRelText">Link tables together like Users.id → Orders.user_id.</p></article>
+                <article class="feature-card"><h3 data-i18n="featureQueryTitle">Visual Query Builder</h3><p data-i18n="featureQueryText">Build queries with conditions and sorting — no SQL knowledge required.</p></article>
+                <article class="feature-card"><h3 data-i18n="featureStorageTitle">Local &amp; Private</h3><p data-i18n="featureStorageText">Data is stored in IndexedDB on your device and never leaves your browser.</p></article>
+                <article class="feature-card"><h3 data-i18n="featurePortabilityTitle">Import / Export</h3><p data-i18n="featurePortabilityText">Back up your whole database as JSON or move data with CSV.</p></article>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="landing-footer">
+            <div class="footer-langs">
+                <span data-i18n="supportedLanguages">Supported languages:</span>
+                <button type="button" class="chip" data-lang-btn="en">English</button>
+                <button type="button" class="chip" data-lang-btn="ar">العربية</button>
+            </div>
+            <div class="footer-themes" role="group" aria-label="Theme">
+                <button type="button" class="chip" data-theme-pref="light" data-i18n="themeLight">Light</button>
+                <button type="button" class="chip" data-theme-pref="dark" data-i18n="themeDark">Dark</button>
+                <button type="button" class="chip" data-theme-pref="system" data-i18n="themeSystem">System</button>
+            </div>
+            <p class="version" id="app-version">AP-WebDB v2.1.0</p>
+            <p class="text-muted" data-i18n="madeWith">A fully in-browser app — no servers, no tracking.</p>
+            <p class="text-muted"><a href="https://github.com/amrhorus/AP-WebDB" target="_blank" rel="noopener noreferrer">GitHub</a> · <span data-i18n="footerLicense">Available under the MIT license.</span></p>
+        </footer>
+    </div>
+
+    <!-- Hidden import input (JSON backup restore) -->
+    <input type="file" id="file-import" accept=".json,application/json" hidden>
+
+    <!-- Create database modal -->
+    <div id="modal-new-db" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-new-db-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="modal-new-db-title" class="modal-title" data-i18n="newDatabaseTitle">Create New Database</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <form id="form-new-db">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="new-db-name" data-i18n="databaseName">Database Name</label>
+                        <input type="text" id="new-db-name" class="input-field" data-i18n-placeholder="databaseNamePlaceholder" placeholder="e.g. School Database" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close data-i18n="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="createDatabase">Create Database</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Open database modal -->
+    <div id="modal-open-db" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-open-db-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="modal-open-db-title" class="modal-title" data-i18n="openDatabaseTitle">Open a Saved Database</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <form id="form-open-db">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="open-db-select" data-i18n="selectDatabase">Select a database</label>
+                        <select id="open-db-select" class="input-field"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close data-i18n="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="open">Open</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation + prompt modals (required by shared UI module) -->
+    <div id="modal-confirm" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="confirm-title" class="modal-title">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-confirm-cancel" type="button" class="btn btn-ghost">Cancel</button>
+                <button id="btn-confirm-ok" type="button" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-prompt" class="modal" role="dialog" aria-modal="true" aria-labelledby="prompt-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="prompt-title" class="modal-title">Input</h2>
+            </div>
+            <form id="prompt-form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <input type="text" id="prompt-input" class="input-field" autocomplete="off">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-prompt-cancel" type="button" class="btn btn-ghost">Cancel</button>
+                    <button id="btn-prompt-ok" type="submit" class="btn btn-primary">OK</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ES module entry point: js/app.js -> home.js -> bootstrap.js (core modules) -->
+</body>
+</html>
