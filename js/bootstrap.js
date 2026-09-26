@@ -6,7 +6,7 @@
 import './utils.js';
 import './i18n.js';
 import './theme.js';
-import './errors.js';
+import { Errors } from './errors.js';
 import './sanitize.js';
 import './idb.js';
 import './engine.js';

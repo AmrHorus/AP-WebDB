@@ -16,6 +16,7 @@ const Home = {
         this.bind('btn-create-db', () => UI.openModal('modal-new-db'));
         this.bind('btn-open-db', () => this.openOpenDbModal());
         this.bind('btn-import-home', () => document.getElementById('file-import').click());
+        this.bind('btn-recent-create', () => UI.openModal('modal-new-db'));
         this.bind('btn-demo', () => this.loadDemo());
         this.bind('btn-theme', () => {
             Prefs.cycleTheme();
