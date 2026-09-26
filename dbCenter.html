@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP WebDB — Alien Pharaoh Web Database</title>
+    <meta name="description" content="AP WebDB Database Center — create and manage databases entirely in your browser.">
+    <link rel="icon" type="image/png" href="assets/Logo.png">
+    <link rel="apple-touch-icon" href="assets/Logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        // Apply saved theme before first paint to avoid a flash of the wrong colors.
+        (function () {
+            var saved = localStorage.getItem('apwebdb_theme') || 'system';
+            var theme = saved === 'system'
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : saved;
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body data-title-key="workspaceTitle">
+    <a class="skip-link" href="#main-area" data-i18n="skipToContent">Skip to main content</a>
+
+    <div id="toast-container" role="region" aria-live="polite" data-i18n-aria="ariaToastRegion"></div>
+
+    <!-- ==================== NO DATABASE STATE ==================== -->
+    <div id="no-database-state" class="no-db-wrap" hidden>
+        <div class="card empty-state">
+            <span class="empty-icon" aria-hidden="true">🗄️</span>
+            <h3 data-i18n="noDatabaseTitle">No database open</h3>
+            <p data-i18n="noDatabaseText">Create a new database or open a saved one to get started.</p>
+            <button id="btn-nodb-create" class="btn btn-primary" data-i18n="createDatabase">Create Database</button>
+            <button id="btn-nodb-home" class="btn btn-ghost" data-i18n="goHome">Go to Home</button>
+        </div>
+    </div>
+
+    <!-- ==================== WORKSPACE ==================== -->
+    <div id="workspace-main" class="workspace" hidden>
+
+        <!-- ---------- TOP BAR ---------- -->
+        <header class="topbar">
+            <a id="btn-back-home" class="icon-btn" href="index.html" data-i18n-title="home" aria-label="Home" title="Home">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+            </a>
+            <button id="btn-menu" class="icon-btn mobile-only" type="button" data-i18n-title="ariaToggleSidebar" aria-label="Toggle navigation sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <a class="brand" href="index.html" title="AP WebDB">
+                <img src="assets/Logo.png" alt="AP WebDB Logo" class="logo">
+                <span class="brand-text hide-sm">
+                    <span class="brand-name">AP WebDB</span>
+                    <span class="brand-tag" data-i18n="tagline">Alien Pharaoh Web Database</span>
+                </span>
+            </a>
+            <div class="topbar-divider" aria-hidden="true"></div>
+            <button id="btn-switch-db" class="db-name" type="button" data-i18n-title="switcherHint" data-i18n-aria="switcherHint">—</button>
+            <span id="save-status" class="save-status" data-state="saved">Saved</span>
+            <div class="topbar-actions">
+                <button id="btn-undo" class="icon-btn" type="button" disabled data-i18n-title="undo" aria-label="Undo">↶</button>
+                <button id="btn-redo" class="icon-btn" type="button" disabled data-i18n-title="redo" aria-label="Redo">↷</button>
+                <div class="topbar-divider" aria-hidden="true"></div>
+                <button id="btn-save" class="icon-btn" type="button" data-i18n-title="saveAll" aria-label="Save All">💾</button>
+                <button id="btn-export-json" class="icon-btn" type="button" data-i18n-title="backup" aria-label="Backup">⬇</button>
+                <button id="btn-import-json" class="icon-btn" type="button" data-i18n-title="restore" aria-label="Restore">⬆</button>
+                <div class="topbar-divider" aria-hidden="true"></div>
+                <button id="btn-theme" class="icon-btn" type="button" data-i18n-title="ariaSwitchTheme" aria-label="Switch color theme">
+                    <img src="assets/Sun.png" alt="" class="theme-icon">
+                </button>
+                <div class="lang-switcher hide-sm" role="group" data-i18n-aria="languageBtnTitle">
+                    <button type="button" data-lang-btn="en">EN</button>
+                    <button type="button" data-lang-btn="ar">عربي</button>
+                </div>
+                <button id="btn-settings" class="icon-btn" type="button" data-i18n-title="settingsTitle" aria-label="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ---------- SIDEBAR ---------- -->
+        <aside class="sidebar" id="sidebar" aria-label="Database navigation">
+            <nav>
+                <div class="sidebar-section">
+                    <h3 class="sidebar-heading" data-i18n="databaseLabel">Database</h3>
+                    <ul>
+                        <li><button id="nav-overview" class="nav-item active" type="button" data-view="overview">
+                            <span class="nav-icon" aria-hidden="true">◧</span>
+                            <span class="nav-label" data-i18n="overview">Overview</span>
+                        </button></li>
+                        <li><button id="nav-info" class="nav-item" type="button" data-view="info">
+                            <span class="nav-icon" aria-hidden="true">ℹ</span>
+                            <span class="nav-label" data-i18n="tableInfoTitle">Information</span>
+                        </button></li>
+                    </ul>
+                    <h3 class="sidebar-heading" data-i18n="tablesNav">Tables</h3>
+                    <ul id="sidebar-tables"></ul>
+                    <button id="nav-new-table" class="nav-item" type="button">
+                        <span class="nav-icon" aria-hidden="true">＋</span>
+                        <span class="nav-label" data-i18n="newTable">New Table</span>
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-heading" data-i18n="tools">Tools</h3>
+                    <ul>
+                        <li><button id="nav-queries" class="nav-item" type="button" data-view="queries">
+                            <span class="nav-icon" aria-hidden="true">⚑</span>
+                            <span class="nav-label" data-i18n="queryBuilder">Query Builder</span>
+                        </button></li>
+                        <li><button id="nav-forms" class="nav-item" type="button" data-view="forms">
+                            <span class="nav-icon" aria-hidden="true">▤</span>
+                            <span class="nav-label" data-i18n="forms">Forms</span>
+                        </button></li>
+                        <li><button id="nav-relationships" class="nav-item" type="button" data-view="relationships">
+                            <span class="nav-icon" aria-hidden="true">∞</span>
+                            <span class="nav-label" data-i18n="relationships">Relationships</span>
+                        </button></li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-heading" data-i18n="data">Data</h3>
+                    <ul>
+                        <li><button id="nav-import-csv" class="nav-item" type="button" data-view="csvimport">
+                            <span class="nav-icon" aria-hidden="true">⬆</span>
+                            <span class="nav-label" data-i18n="importCsv">Import CSV</span>
+                        </button></li>
+                        <li><button id="nav-export-csv" class="nav-item" type="button">
+                            <span class="nav-icon" aria-hidden="true">⬇</span>
+                            <span class="nav-label" data-i18n="exportCsv">Export CSV</span>
+                        </button></li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section">
+                    <ul>
+                        <li><button id="nav-settings" class="nav-item" type="button">
+                            <span class="nav-icon" aria-hidden="true">⚙</span>
+                            <span class="nav-label" data-i18n="databaseSettings">Database Settings</span>
+                        </button></li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+        <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+        <!-- ---------- MAIN AREA ---------- -->
+        <main class="main-area" id="main-area">
+
+            <!-- Overview / Database Center -->
+            <section id="panel-overview" class="view-panel">
+                <div class="panel-header">
+                    <h2 data-i18n="dbOverview">Database Overview</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="card stat-card">
+                        <div class="stat-value" id="stat-tables">0</div>
+                        <div class="stat-label" data-i18n="statTables">Tables</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value" id="stat-records">0</div>
+                        <div class="stat-label" data-i18n="statRecords">Records</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value" id="stat-fields">0</div>
+                        <div class="stat-label" data-i18n="statFields">Fields</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value" id="stat-relations">0</div>
+                        <div class="stat-label" data-i18n="statRelationships">Relationships</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        <h3 data-i18n="yourTables">Your Tables</h3>
+                        <span class="spacer"></span>
+                        <button id="btn-overview-new-table" class="btn btn-primary btn-sm" type="button">＋ <span data-i18n="createTable">Create Table</span></button>
+                    </div>
+                    <div id="tables-grid" class="tables-grid"></div>
+                    <div id="tables-empty" class="empty-state">
+                        <span class="empty-icon" aria-hidden="true">▦</span>
+                        <p data-i18n="noTablesEmpty">No tables created yet. Click “Create Table” to design your first table.</p>
+                    </div>
+                    <p class="hint"><span data-i18n="created">Created</span>: <span id="db-created">—</span> · <span data-i18n="lastModified">Last modified</span>: <span id="db-updated">—</span></p>
+                </div>
+            </section>
+
+            <!-- Table Designer -->
+            <section id="panel-designer" class="view-panel" hidden>
+                <div class="panel-header">
+                    <h2 id="designer-title">Table Designer</h2>
+                    <span class="spacer"></span>
+                    <button id="btn-designer-save" class="btn btn-primary" type="button"><span data-i18n="saveTable">Save Table</span></button>
+                    <button id="btn-designer-cancel" class="btn btn-ghost" type="button"><span data-i18n="cancelButton">Cancel</span></button>
+                </div>
+                <div class="card">
+                    <div class="designer-toolbar">
+                        <div class="form-group">
+                            <label for="designer-table-name" data-i18n="tableName">Table Name</label>
+                            <input type="text" id="designer-table-name" class="input-field" data-i18n-placeholder="tableNamePlaceholder" placeholder="Enter table name">
+                        </div>
+                        <p class="hint" data-i18n="autoIdHint">Auto-increments on insert</p>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col" data-i18n="fieldName">Field Name</th>
+                                    <th scope="col" data-i18n="type">Type</th>
+                                    <th scope="col" data-i18n="primaryKey">Primary Key</th>
+                                    <th scope="col" data-i18n="required">Required</th>
+                                    <th scope="col" data-i18n="actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="designer-fields-body"></tbody>
+                        </table>
+                    </div>
+                    <button id="btn-add-field" class="btn btn-secondary" type="button">＋ <span data-i18n="addField">Add Field</span></button>
+                </div>
+            </section>
+
+            <!-- Datasheet -->
+            <section id="panel-data" class="view-panel" hidden>
+                <div class="panel-header">
+                    <h2 id="data-table-name">Table</h2>
+                    <span class="spacer"></span>
+                    <button id="btn-rename-table" class="btn btn-ghost btn-sm" type="button"><span data-i18n="renameTableBtn">Rename</span></button>
+                    <button id="btn-delete-table" class="btn btn-danger-ghost btn-sm" type="button"><span data-i18n="deleteTable">Delete Table</span></button>
+                    <button id="btn-table-info" class="btn btn-ghost btn-sm" type="button"><span data-i18n="tableInfoTitle">Information</span></button>
+                </div>
+                <div class="toolbar">
+                    <input type="search" id="table-search" class="search-input input-field" data-i18n-placeholder="searchPlaceholder" placeholder="Search records…" aria-label="Search records">
+                    <div class="inline-filter">
+                        <select id="filter-column" class="input-field" aria-label="Filter column"></select>
+                        <select id="filter-operator" class="input-field" aria-label="Filter operator">
+                            <option value="equals" data-i18n="op_equals">Equals</option>
+                            <option value="not_equals" data-i18n="op_not_equals">Not equals</option>
+                            <option value="contains" data-i18n="op_contains">Contains</option>
+                            <option value="starts_with" data-i18n="op_starts_with">Starts with</option>
+                            <option value="ends_with" data-i18n="op_ends_with">Ends with</option>
+                            <option value="greater_than" data-i18n="op_greater_than">Greater than</option>
+                            <option value="greater_equal" data-i18n="op_greater_equal">Greater or equal</option>
+                            <option value="less_than" data-i18n="op_less_than">Less than</option>
+                            <option value="less_equal" data-i18n="op_less_equal">Less or equal</option>
+                            <option value="is_empty" data-i18n="op_is_empty">Is empty</option>
+                            <option value="is_not_empty" data-i18n="op_is_not_empty">Is not empty</option>
+                        </select>
+                        <input type="text" id="filter-value" class="input-field" data-i18n-placeholder="filterValue" placeholder="Value">
+                        <button id="btn-apply-filter" class="btn" type="button"><span data-i18n="applyFilter">Apply Filter</span></button>
+                    </div>
+                    <span class="spacer"></span>
+                    <button id="btn-add-record" class="btn btn-primary" type="button">＋ <span data-i18n="addRecord">Add Record</span></button>
+                    <button id="btn-add-column" class="btn btn-secondary" type="button"><span data-i18n="addColumnBtn">Add Column</span></button>
+                    <button id="btn-data-export-csv" class="btn btn-ghost" type="button"><span data-i18n="exportTableCsv">Export CSV</span></button>
+                    <button id="btn-data-import-csv" class="btn btn-ghost" type="button"><span data-i18n="importTableCsv">Import CSV</span></button>
+                </div>
+                <div id="active-filters" class="filter-chips" aria-live="polite"></div>
+                <button id="btn-clear-filters" class="btn btn-ghost btn-sm" type="button" hidden><span data-i18n="clearFilters">Clear Filters</span></button>
+                <div class="card">
+                    <div class="table-scroll">
+                        <table class="data-table" id="data-grid">
+                            <thead id="data-head"></thead>
+                            <tbody id="data-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="data-empty-state" class="empty-state" hidden>
+                        <span class="empty-icon" aria-hidden="true">🗒️</span>
+                        <p class="empty-text">No records yet.</p>
+                        <button type="button" class="btn btn-primary empty-action" hidden>Add Record</button>
+                    </div>
+                </div>
+                <div class="pagination">
+                    <button id="btn-first-page" class="btn btn-ghost btn-sm" type="button" aria-label="First page">⏮</button>
+                    <button id="btn-prev-page" class="btn btn-ghost btn-sm" type="button" aria-label="Previous page">◀</button>
+                    <span id="pagination-info">Showing 0–0 of 0</span>
+                    <button id="btn-next-page" class="btn btn-ghost btn-sm" type="button" aria-label="Next page">▶</button>
+                    <button id="btn-last-page" class="btn btn-ghost btn-sm" type="button" aria-label="Last page">⏭</button>
+                    <label class="spacer" style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+                        <span data-i18n="perPage">Per page</span>
+                        <select id="page-size-select" class="input-field input-sm" aria-label="Rows per page">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <p class="hint" data-i18n="dblclickHint">Tip: double-click a header to rename a column.</p>
+            </section>
+
+            <!-- Table Information -->
+            <section id="panel-info" class="view-panel" hidden>
+                <div class="panel-header">
+                    <h2 id="info-title">Table Information</h2>
+                    <span class="spacer"></span>
+                    <button id="btn-info-back" class="btn btn-ghost" type="button"><span data-i18n="back">Back</span></button>
+                </div>
+                <div class="stats-grid">
+                    <div class="card stat-card">
+                        <div class="stat-value" id="info-field-count">0</div>
+                        <div class="stat-label" data-i18n="fields">Fields</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value" id="info-record-count">0</div>
+                        <div class="stat-label" data-i18n="recordsLabel">Records</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value" id="info-rel-count">0</div>
+                        <div class="stat-label" data-i18n="relationships">Relationships</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <p class="hint"><span data-i18n="primaryKey">Primary Key</span>: <strong id="info-pk">—</strong></p>
+                    <p class="hint"><span data-i18n="created">Created</span>: <span id="info-created">—</span> · <span data-i18n="lastModified">Last modified</span>: <span id="info-updated">—</span></p>
+                </div>
+                <div class="card">
+                    <div class="card-title"><h3 data-i18n="infoTableStructure">Structure</h3></div>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col" data-i18n="fieldName">Field Name</th>
+                                    <th scope="col" data-i18n="type">Type</th>
+                                    <th scope="col" data-i18n="primaryKey">Primary Key</th>
+                                    <th scope="col" data-i18n="required">Required</th>
+                                    <th scope="col" data-i18n="recordsLabel">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody id="info-fields-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Relationships -->
+            <section id="panel-relationships" class="view-panel" hidden>
+                <div class="panel-header"><h2 data-i18n="relationships">Relationships</h2></div>
+                <p class="hint" data-i18n="relationshipsDesc">Connect fields between tables, e.g. Orders.customer_id → Customers.id.</p>
+                <div class="card">
+                    <div class="rel-form">
+                        <div class="form-group">
+                            <label for="rel-source-table" data-i18n="sourceTable">Parent table</label>
+                            <select id="rel-source-table" class="input-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rel-source-field" data-i18n="sourceField">Parent field</label>
+                            <select id="rel-source-field" class="input-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rel-target-table" data-i18n="targetTable">Child table</label>
+                            <select id="rel-target-table" class="input-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rel-target-field" data-i18n="targetField">Child field</label>
+                            <select id="rel-target-field" class="input-field"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button id="btn-create-rel" class="btn btn-primary" type="button"><span data-i18n="createRelationship">Create Relationship</span></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title"><h3 data-i18n="existingRelationships">Existing Relationships</h3></div>
+                    <div id="relationships-list"></div>
+                    <div id="relationships-empty" class="empty-state">
+                        <span class="empty-icon" aria-hidden="true">∞</span>
+                        <p data-i18n="noRelationships">No relationships defined yet. Use the form above to link two tables.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Query Builder -->
+            <section id="panel-queries" class="view-panel" hidden>
+                <div class="panel-header"><h2 data-i18n="queryBuilder">Query Builder</h2></div>
+                <p class="hint" data-i18n="queryBuilderDesc">Pick a table, choose the fields you want, add conditions and sorting — then run the query.</p>
+                <div class="card">
+                    <div class="qb-section">
+                        <div class="form-group">
+                            <label for="qb-table" data-i18n="selectTable">Select Table</label>
+                            <select id="qb-table" class="input-field"></select>
+                        </div>
+                    </div>
+                    <div class="qb-section">
+                        <h3 data-i18n="showFields">Fields to show</h3>
+                        <div id="qb-fields" class="qb-fields-grid"></div>
+                    </div>
+                    <div class="qb-section">
+                        <h3 data-i18n="conditions">Conditions</h3>
+                        <div id="qb-conditions"></div>
+                        <button id="qb-add-condition" class="btn btn-secondary btn-sm" type="button">＋ <span data-i18n="addCondition">Add Condition</span></button>
+                    </div>
+                    <div class="qb-section inline-filter">
+                        <div class="form-group" style="margin:0;">
+                            <label for="qb-sort-field" data-i18n="sortBy">Sort by</label>
+                            <select id="qb-sort-field" class="input-field">
+                                <option value="" data-i18n="none">None</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label for="qb-sort-dir" data-i18n="tabCaption">Table tabs</label>
+                            <select id="qb-sort-dir" class="input-field">
+                                <option value="asc" data-i18n="ascending">Ascending</option>
+                                <option value="desc" data-i18n="descending">Descending</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="toolbar">
+                        <button id="qb-run" class="btn btn-primary" type="button"><span data-i18n="runQuery">Run Query</span></button>
+                        <button id="qb-clear" class="btn btn-ghost" type="button"><span data-i18n="clearQuery">Clear</span></button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        <h3 data-i18n="results">Results</h3>
+                        <span id="qb-result-count" class="hint"></span>
+                    </div>
+                    <div id="qb-empty-state" class="empty-state">
+                        <span class="empty-icon" aria-hidden="true">⚑</span>
+                        <p data-i18n="queryEmptyState">Configure a query and press “Run Query” to see results here.</p>
+                    </div>
+                    <div id="qb-results"></div>
+                </div>
+            </section>
+
+            <!-- Forms -->
+            <section id="panel-forms" class="view-panel" hidden>
+                <div class="panel-header"><h2 data-i18n="forms">Forms</h2></div>
+                <p class="hint" data-i18n="formsDesc">Fill in a form adapted to each field type, or browse and edit existing records.</p>
+                <div class="card">
+                    <div class="form-group">
+                        <label for="form-table-select" data-i18n="selectTable">Select Table</label>
+                        <select id="form-table-select" class="input-field"></select>
+                    </div>
+                </div>
+                <div class="forms-layout">
+                    <div class="card">
+                        <div class="card-title"><h3 data-i18n="record">Record</h3></div>
+                        <div class="form-group">
+                            <label for="form-edit-select" data-i18n="existingRecords">Existing records</label>
+                            <select id="form-edit-select" class="input-field"></select>
+                        </div>
+                        <div id="inline-form-fields"></div>
+                        <div class="toolbar" style="margin-top:12px;margin-bottom:0;">
+                            <button id="btn-form-update" class="btn btn-primary" type="button"><span>Create Record</span></button>
+                            <button id="btn-form-reset" class="btn btn-ghost" type="button"><span data-i18n="clear">Clear</span></button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div id="forms-area"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CSV Import -->
+            <section id="panel-csvimport" class="view-panel" hidden>
+                <div class="panel-header"><h2 data-i18n="importCsvTitle">Import CSV</h2></div>
+                <p class="hint" data-i18n="importCsvDesc">Create a new table from a CSV file, or append rows to an existing table.</p>
+                <div class="card">
+                    <div class="form-group">
+                        <label for="csv-file" data-i18n="selectCsvFile">CSV File</label>
+                        <input type="file" id="csv-file" class="input-field" accept=".csv,text/csv">
+                    </div>
+                    <div class="form-group">
+                        <label for="csv-target-table" data-i18n="targetTableLabel">Target Table</label>
+                        <select id="csv-target-table" class="input-field"></select>
+                    </div>
+                    <div class="form-group" id="csv-new-name-group">
+                        <label for="csv-new-name" data-i18n="tableName">Table Name</label>
+                        <input type="text" id="csv-new-name" class="input-field" data-i18n-placeholder="tableNamePlaceholder" placeholder="Enter table name">
+                    </div>
+                    <p id="csv-no-file" class="hint" data-i18n="noCsvLoaded">Choose a CSV file to see a preview.</p>
+                    <div id="csv-preview-wrap" hidden>
+                        <h3 data-i18n="preview">Preview</h3>
+                        <p class="hint" id="csv-preview-info"></p>
+                        <div id="csv-preview"></div>
+                    </div>
+                    <button id="btn-csv-import" class="btn btn-primary" type="button"><span data-i18n="confirmImport">Import Data</span></button>
+                </div>
+            </section>
+        </main>
+
+        <!-- ---------- STATUS BAR ---------- -->
+        <footer class="status-bar">
+            <span class="status-item"><span data-i18n="databaseLabel">Database</span>: <span class="status-value" id="status-db">—</span></span>
+            <span class="status-item"><span data-i18n="currentTable">Table</span>: <span class="status-value" id="status-table">—</span></span>
+            <span class="status-item"><span data-i18n="recordsLabel">Records</span>: <span class="status-value" id="status-records">—</span></span>
+            <span class="status-item spacer"><span class="status-dot" aria-hidden="true"></span><span data-i18n="shortcutHint">Ctrl+S save · Ctrl+Z undo · Ctrl+Y redo</span></span>
+        </footer>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- New database -->
+    <div id="modal-new-db" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-new-db-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="modal-new-db-title" class="modal-title" data-i18n="newDatabaseTitle">Create New Database</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <form id="form-new-db">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="new-db-name" data-i18n="databaseName">Database Name</label>
+                        <input type="text" id="new-db-name" class="input-field" data-i18n-placeholder="databaseNamePlaceholder" placeholder="e.g. School Database" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close data-i18n="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="createDatabase">Create Database</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Open / switch database -->
+    <div id="modal-open-db" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-open-db-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="modal-open-db-title" class="modal-title" data-i18n="openDatabaseTitle">Open a Saved Database</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <form id="form-open-db">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="open-db-select" data-i18n="selectDatabase">Select a database</label>
+                        <select id="open-db-select" class="input-field"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" data-close data-i18n="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="open">Open</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Record add/edit modal -->
+    <div id="modal-record" class="modal" role="dialog" aria-modal="true" aria-labelledby="record-modal-title" hidden>
+        <div class="modal-box modal-wide">
+            <div class="modal-header">
+                <h2 id="record-modal-title" class="modal-title">Add Record</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="record-form-fields"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-record-cancel" type="button" class="btn btn-ghost" data-i18n="cancelButton">Cancel</button>
+                <button id="btn-record-save" type="button" class="btn btn-primary" data-i18n="saveRecord">Save Record</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm dialog -->
+    <div id="modal-confirm" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="confirm-title" class="modal-title">Confirm</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-confirm-cancel" type="button" class="btn btn-ghost" data-i18n="cancelButton">Cancel</button>
+                <button id="btn-confirm-ok" type="button" class="btn btn-danger" data-i18n="confirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt dialog -->
+    <div id="modal-prompt" class="modal" role="dialog" aria-modal="true" aria-labelledby="prompt-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="prompt-title" class="modal-title">Rename</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <form id="prompt-form">
+                <div class="modal-body">
+                    <input type="text" id="prompt-input" class="input-field" autocomplete="off">
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-prompt-cancel" type="button" class="btn btn-ghost" data-i18n="cancelButton">Cancel</button>
+                    <button id="btn-prompt-ok" type="submit" class="btn btn-primary" data-i18n="ok">OK</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="modal-settings" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="settings-title" class="modal-title" data-i18n="settingsTitle">Settings</h2>
+                <button class="icon-btn modal-close-x" type="button" data-close data-i18n-title="dialogClose" aria-label="Close dialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <h3 data-i18n="appearance">Appearance</h3>
+                <div class="settings-row">
+                    <span class="label" data-i18n="themeSetting">Theme</span>
+                    <div class="segmented" role="group" data-i18n-aria="themeSetting">
+                        <button type="button" data-theme-pref="light" data-i18n="themeLight">Light</button>
+                        <button type="button" data-theme-pref="dark" data-i18n="themeDark">Dark</button>
+                        <button type="button" data-theme-pref="system" data-i18n="themeSystem">System</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="label" data-i18n="languageSetting">Language</span>
+                    <div class="segmented" role="group" data-i18n-aria="languageSetting">
+                        <button type="button" data-lang-btn="en">English</button>
+                        <button type="button" data-lang-btn="ar">العربية</button>
+                    </div>
+                </div>
+                <h3 data-i18n="databaseLabel">Database</h3>
+                <div class="settings-row">
+                    <span class="label" data-i18n="databaseName">Database Name</span>
+                    <span><span id="settings-db-name">—</span>
+                        <button id="btn-rename-db" type="button" class="btn btn-ghost btn-sm" data-i18n="rename">Rename</button>
+                    </span>
+                </div>
+                <div class="settings-row">
+                    <span class="label" data-i18n="backup">Backup</span>
+                    <button id="btn-export-all" type="button" class="btn btn-secondary btn-sm" data-i18n="exportJsonTitle">Export Databases (JSON)</button>
+                </div>
+                <div class="settings-row">
+                    <span class="label" data-i18n="restore">Restore</span>
+                    <button id="btn-import-file-btn" type="button" class="btn btn-secondary btn-sm" data-i18n="import">Import</button>
+                </div>
+                <h3 data-i18n="dangerZone">Danger Zone</h3>
+                <div class="settings-row">
+                    <span class="label" data-i18n="confirmDeleteDbTitle">Delete database?</span>
+                    <button id="btn-delete-db" type="button" class="btn btn-danger btn-sm" data-i18n="delete">Delete</button>
+                </div>
+                <p class="hint" data-i18n="aboutAppText">AP WebDB is a lightweight browser-based database management system inspired by Microsoft Access. All data is stored locally in your browser.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-settings" type="button" class="btn btn-ghost" data-i18n="closeButton">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="file-import-json" accept=".json,application/json" hidden>
+    <input type="file" id="file-import-csv" accept=".csv,text/csv" hidden>
+
+    <!-- Shared modules (single engine — no duplicated database logic) -->
+    <!-- Core modules are loaded once by js/bootstrap.js (single shared engine) -->
+    <script type="module" src="js/dbCenterApp.js"></script>
+</body>
+</html>

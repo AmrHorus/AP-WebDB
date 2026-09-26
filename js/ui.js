@@ -106,8 +106,16 @@ const UI = {
         });
     },
 
-    // Generic error display for thrown errors during user actions
+    // Generic error display for thrown errors during user actions.
+    // Delegates message selection to the centralized Errors utility so every
+    // failure path (IndexedDB, import, CSV...) produces a friendly toast.
     handleError(err, fallbackKey) {
+        if (typeof Errors !== 'undefined') {
+            const message = fallbackKey ? t(fallbackKey) : Errors.friendly(err);
+            console.error('[AP-WebDB] UI.handleError:', err);
+            this.toast(message, 'error', 5000);
+            return;
+        }
         console.error(err);
         const msg = err && err.message && !/^[A-Za-z ]*Error/.test(err.message.split('\n')[0])
             ? err.message
@@ -138,3 +146,7 @@ const UI = {
         return String(value);
     }
 };
+
+// ES module exports.
+export default UI;
+export { UI };

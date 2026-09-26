@@ -1,7 +1,9 @@
-// Database Workspace controller for database.html.
+// Database Center controller for dbCenter.html.
 // Handles top bar, sidebar navigation, table views (design / datasheet / info),
 // relationships, query builder, forms, CSV and JSON import/export.
-const Workspace = {
+// All database logic is shared with the rest of the app through Engine / IDB /
+// Backup / Csv / RecordForm — this module only wires them to the UI.
+const DbCenter = {
     currentTableId: null,
     view: 'overview',      // overview | designer | data | relationships | queries | forms | csvimport
     searchQuery: '',
@@ -65,6 +67,8 @@ const Workspace = {
         };
 
         on('btn-back-home', 'click', () => { window.location.href = 'index.html'; });
+        const homeLink = document.querySelector('.topbar a.brand');
+        if (homeLink) homeLink.setAttribute('title', t('home'));
         on('btn-switch-db', 'click', () => this.switchDatabase());
         on('btn-new-db-ws', 'click', () => this.createDatabaseFlow());
         on('btn-save', 'click', () => {
@@ -78,6 +82,17 @@ const Workspace = {
         on('btn-theme', 'click', () => Prefs.cycleTheme());
         on('btn-lang', 'click', () => this.toggleLanguage());
         on('btn-settings', 'click', () => this.openSettings());
+        // Ctrl+F focuses the record search box from anywhere on the page.
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                const box = document.getElementById('table-search');
+                if (!box || box.offsetParent === null) return;
+                e.preventDefault();
+                box.focus();
+                box.select();
+            }
+        });
+
         on('btn-menu', 'click', () => {
             document.body.classList.toggle('nav-open');
         });
@@ -114,6 +129,7 @@ const Workspace = {
 
         // sidebar tool buttons
         on('nav-overview', 'click', () => this.showView('overview'));
+        on('nav-info', 'click', () => this.showView('info'));
         on('nav-new-table', 'click', () => this.openDesigner(null));
         on('nav-relationships', 'click', () => this.showView('relationships'));
         on('btn-table-info', 'click', () => this.showView('info'));
@@ -122,6 +138,11 @@ const Workspace = {
         on('nav-import-csv', 'click', () => this.showView('csvimport'));
         on('nav-export-csv', 'click', () => this.exportCsvFlow());
         on('nav-settings', 'click', () => this.openSettings());
+        on('btn-overview-new-table', 'click', () => this.openDesigner(null));
+        on('btn-info-back', 'click', () => {
+            if (this.currentTableId && Engine.getTable(this.currentTableId)) this.selectTable(this.currentTableId);
+            else this.showView('overview');
+        });
 
         // designer buttons
         on('btn-add-field', 'click', () => this.designerAddField());
@@ -188,6 +209,34 @@ const Workspace = {
         on('btn-form-new', 'click', () => this.formNewRecord());
         on('btn-form-update', 'click', () => this.formUpdateRecord());
         on('btn-form-reset', 'click', () => this.renderFormEditor());
+
+        document.querySelectorAll('[data-lang-btn]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                Prefs.setLang(btn.dataset.langBtn);
+                if (Engine.db) this.refreshCurrentView();
+            });
+        });
+
+        // every "✕" button inside a modal closes it
+        document.querySelectorAll('.modal [data-close]').forEach((btn) => {
+            btn.addEventListener('click', () => UI.closeModal());
+        });
+
+        // language buttons (top bar + settings modal)
+        document.querySelectorAll('.topbar [data-lang-btn]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                Prefs.setLang(btn.dataset.langBtn);
+                if (Engine.db) this.refreshCurrentView();
+            });
+        });
+
+        // language buttons inside the settings modal
+        document.querySelectorAll('#modal-settings [data-lang-btn]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                Prefs.setLang(btn.dataset.langBtn);
+                if (Engine.db) this.refreshCurrentView();
+            });
+        });
 
         // settings modal
         on('btn-close-settings', 'click', () => UI.closeModal());
@@ -1067,6 +1116,7 @@ const Workspace = {
             sel.appendChild(opt);
         });
         if (Engine.getTable(prev)) sel.value = prev;
+        this.qbPopulateSortFields();
         this.qbConditions = [];
         this.qbFields = null;
         this.qbRenderFields();
@@ -1077,10 +1127,28 @@ const Workspace = {
     },
 
     qbTableChanged() {
+        this.qbPopulateSortFields();
         this.qbConditions = [];
         this.qbFields = null;
         this.qbRenderFields();
         this.qbRenderConditions();
+    },
+
+    qbPopulateSortFields() {
+        const sortSel = document.getElementById('qb-sort-field');
+        if (!sortSel) return;
+        const prev = sortSel.value;
+        const table = Engine.getTable(document.getElementById('qb-table').value);
+        sortSel.innerHTML = '<option value="">' + t('none') + '</option>';
+        if (table) {
+            table.fields.forEach((f) => {
+                const opt = document.createElement('option');
+                opt.value = f.name;
+                opt.textContent = f.name;
+                sortSel.appendChild(opt);
+            });
+        }
+        if (prev && (!table || table.fields.some((f) => f.name === prev))) sortSel.value = prev;
     },
 
     qbRenderFields() {
@@ -1409,16 +1477,18 @@ const Workspace = {
     exportTableCsv(tableId) {
         const table = Engine.getTable(tableId);
         if (!table) { UI.toast(t('errSelectTable'), 'error'); return; }
-        Csv.download(Csv.slugify(table.name) + '.csv', Csv.exportTable(table), 'text/csv');
-        UI.toast(t('toastExported'), 'success');
+        Promise.resolve(Csv.exportTableAsync(table)).then((content) => {
+            Csv.download(Csv.slugify(table.name) + '.csv', content, 'text/csv');
+            UI.toast(t('toastExported'), 'success');
+        }).catch((e) => UI.handleError(e, 'errUnknown'));
     },
 
     importCsvIntoTable(file) {
         const tableId = this.pendingCsvTableId || document.getElementById('csv-target-table').value;
         const table = Engine.getTable(tableId);
         if (!table) { UI.toast(t('errSelectTableFirst'), 'error'); return; }
-        Csv.readFile(file).then((text) => {
-            const parsed = Csv.parse(text);
+        Csv.readFile(file).then(async (text) => {
+            const parsed = await Csv.parse(text);
             const known = table.fields.map((f) => f.name.toLowerCase());
             const missing = parsed.headers.filter((h) => known.indexOf(h.toLowerCase()) === -1);
             const count = Engine.appendRecords(tableId, parsed.records);
@@ -1452,8 +1522,8 @@ const Workspace = {
         document.getElementById('csv-file').onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            Csv.readFile(file).then((text) => {
-                this.csvParsed = Csv.parse(text);
+            Csv.readFile(file).then(async (text) => {
+                this.csvParsed = await Csv.parse(text);
                 this.renderCsvPreview();
             }).catch((e2) => UI.handleError(e2, 'errCsvParse'));
         };
@@ -1536,7 +1606,7 @@ const Workspace = {
 
     importJsonFile(file) {
         Backup.readFile(file).then((text) => {
-            const dbs = Backup.parse(text);
+            const dbs = Backup.parse(text); // still synchronous + fully validated
             return IDB.listDatabases().then((existing) => {
                 const clash = existing.find((e) =>
                     dbs.some((d) => d.id === e.id || d.name.toLowerCase() === e.name.toLowerCase()));
@@ -1577,7 +1647,7 @@ const Workspace = {
             });
             document.getElementById('form-open-db').onsubmit = (e) => {
                 e.preventDefault();
-                window.location.href = 'database.html?db=' + encodeURIComponent(select.value);
+                window.location.href = 'dbCenter.html?db=' + encodeURIComponent(select.value);
             };
         });
     },
@@ -1617,4 +1687,9 @@ const Workspace = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => Workspace.init());
+document.addEventListener('DOMContentLoaded', () => DbCenter.init());
+
+// ES module entry point for the Database Center page.
+import './bootstrap.js';
+export default DbCenter;
+export { DbCenter };

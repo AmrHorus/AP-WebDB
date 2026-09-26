@@ -1,5 +1,11 @@
 // Database engine: schema model, CRUD operations, validation and undo/redo.
 // The engine keeps one "open" database in memory and persists it via IDB.
+import Utils from './utils.js';
+import IDB from './idb.js';
+import UI from './ui.js';
+import Errors from './errors.js';
+import { t } from './theme.js';
+
 const Engine = {
     db: null,            // currently open database object
     dirty: false,
@@ -8,10 +14,17 @@ const Engine = {
     MAX_HISTORY: 50,
     listeners: {},
 
+    // Single source of truth for field types — UI, forms, CSV and imports
+    // all validate against this list (legacy "number" maps to "decimal").
     FIELD_TYPES: [
         'auto_id', 'text', 'long_text', 'integer', 'decimal',
         'boolean', 'date', 'datetime', 'email', 'url'
     ],
+
+    normalizeType(type) {
+        if (type === 'number') return 'decimal';
+        return this.FIELD_TYPES.indexOf(type) !== -1 ? type : 'text';
+    },
 
     /* ---------- tiny event bus ---------- */
     on(event, fn) {
@@ -63,7 +76,7 @@ const Engine = {
             .catch((e) => {
                 console.error('Failed to persist database:', e);
                 this.setSaveStatus('error');
-                UI.toast(t('errStorageFull'), 'error');
+                Errors.report(e, { context: 'Engine.persist', prefix: t('errSaveFailed') });
             });
     },
 
@@ -79,7 +92,8 @@ const Engine = {
         const el = document.getElementById('save-status');
         if (!el) return;
         el.dataset.state = state;
-        el.textContent = state === 'saving' ? t('saving') : state === 'saved' ? t('saved') : t('unsavedChanges');
+        const keys = { saving: 'saving', saved: 'saved', dirty: 'unsavedChanges', error: 'errorSaving' };
+        el.textContent = t(keys[state] || 'saved');
     },
 
     /* ---------- history / undo-redo ---------- */
@@ -554,3 +568,7 @@ const Engine = {
 };
 
 Engine.debouncedPersist = Utils.debounce(() => Engine.persist(), 800);
+
+// ES module exports.
+export default Engine;
+export { Engine };

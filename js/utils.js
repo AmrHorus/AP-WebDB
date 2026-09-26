@@ -35,3 +35,8 @@ const Utils = {
         return JSON.parse(JSON.stringify(obj));
     }
 };
+
+// ES module exports (globals above are kept for non-module consumers).
+const UtilsDefault = Utils;
+export default UtilsDefault;
+export { Utils };

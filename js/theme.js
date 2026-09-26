@@ -1,5 +1,7 @@
 // Theme, language (i18n + RTL) and small preference helpers.
 // Preferences live in localStorage; database content lives in IndexedDB.
+import I18N from './i18n.js';
+
 const Prefs = {
     THEME_KEY: 'apwebdb_theme',
     LANG_KEY: 'apwebdb_lang',
@@ -92,6 +94,10 @@ const Prefs = {
             btn.classList.toggle('active', btn.dataset.langBtn === lang);
             btn.setAttribute('aria-pressed', String(btn.dataset.langBtn === lang));
         });
+        // Re-translate dynamically built <option> elements (key stored in data-i18n-key).
+        document.querySelectorAll('option[data-i18n-key]').forEach((opt) => {
+            opt.textContent = t(opt.dataset.i18nKey);
+        });
         this.updateThemeButtons();
     }
 };
@@ -116,7 +122,10 @@ function tp(key, count, params) {
     let chosen;
     if (parts.length > 1) {
         if (lang === 'ar') {
-            chosen = count === 1 ? parts[0] : parts[1];
+            // Arabic: use dual form for 2 when provided ("one | two | many")
+            if (count === 1) chosen = parts[0];
+            else if (count === 2 && parts.length > 2) chosen = parts[1];
+            else chosen = parts[parts.length - 1];
         } else {
             chosen = count === 1 ? parts[0] : (parts[1] || parts[0]);
         }
@@ -139,13 +148,12 @@ function formatRelativeTime(iso) {
 }
 
 (function initThemeEarly() {
-    // Applied as early as possible to avoid a flash of the wrong theme.
-    const style = document.createElement('style');
-    style.id = 'theme-boot';
-    document.head.appendChild(style);
+    // Apply the persisted theme as soon as this module loads so the correct
+    // colors are active before the first render pass (the inline boot script
+    // in each HTML head already does this pre-parse; this is the fallback).
+    Prefs.applyTheme();
 })();
 
-window.addEventListener('matchMedia', () => {});
 if (window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
@@ -154,3 +162,7 @@ if (window.matchMedia) {
     if (mq.addEventListener) mq.addEventListener('change', handler);
     else if (mq.addListener) mq.addListener(handler);
 }
+
+// ES module exports.
+export default Prefs;
+export { Prefs, t, tp, formatRelativeTime };
