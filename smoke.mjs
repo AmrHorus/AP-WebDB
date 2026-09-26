@@ -104,10 +104,10 @@ const t2 = Engine.createTable('Grades', [
   { name: 'student_id', type: 'integer', required: true },
   { name: 'Score', type: 'decimal' }
 ]);
-Engine.addRelationship(t1.id, 'ID', t2.id, 'student_id');
+Engine.createRelationship(t1.id, 'ID', t2.id, 'student_id');
 check('relationship created', Engine.db.relationships.length === 1);
 rejected = false;
-try { Engine.addRelationship(t1.id, 'Nope', t2.id, 'student_id'); } catch (e) { rejected = true; }
+try { Engine.createRelationship(t1.id, 'Nope', t2.id, 'student_id'); } catch (e) { rejected = true; }
 check('invalid relationship rejected', rejected);
 
 // 8. backup build -> parse -> import roundtrip

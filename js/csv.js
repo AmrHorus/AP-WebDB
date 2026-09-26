@@ -165,7 +165,7 @@ const Csv = {
             }).join(',')
         );
         // UTF-8 BOM so spreadsheet apps read Arabic text correctly
-        return '\uFEFF' + [headers, ...rows].map((r) => r.join(',')).join('\r\n');
+        return '\uFEFF' + [headers, ...rows].join('\r\n');
     },
 
     // Chunked generation for very large tables: build Blob parts incrementally

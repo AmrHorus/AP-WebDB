@@ -161,8 +161,9 @@ const Engine = {
         return this.db ? this.db.tables : [];
     },
 
-    getTable(id) {
-        return this.tables().find((tbl) => tbl.id === id) || null;
+    getTable(idOrName) {
+        const key = String(idOrName);
+        return this.tables().find((tbl) => tbl.id === key || tbl.name === key) || null;
     },
 
     getTableByName(name, exceptId) {
