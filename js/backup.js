@@ -3,8 +3,14 @@
 // deep-sanitized (prototype pollution + control chars + markup stripped),
 // schema-validated against Engine.FIELD_TYPES and size-capped before it
 // ever reaches IndexedDB.
-import Sanitize from './sanitize.js';
-import Csv from './csv.js';
+
+
+import { Csv } from './csv.js';
+import { Engine } from './engine.js';
+import { I18N } from './i18n.js';
+import { IDB } from './idb.js';
+import { Sanitize } from './sanitize.js';
+import { Utils } from './utils.js';
 
 const MAX_DATABASES = 50;
 const MAX_TABLES_PER_DB = 200;

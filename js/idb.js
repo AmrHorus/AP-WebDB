@@ -1,7 +1,11 @@
 // IndexedDB storage layer for AP-WebDB (ES Module).
 // Every user database is stored as one record in the "databases" object store.
 // Modern async/await API with schema versioning and migration support.
-import Errors from './errors.js';
+
+
+import { Errors } from './errors.js';
+import { Sanitize } from './sanitize.js';
+import { Utils } from './utils.js';
 
 const DB_NAME = 'apwebdb';
 const STORE = 'databases';

@@ -1,4 +1,13 @@
 // Landing page logic: recent databases, create/open/import, demo data.
+import './bootstrap.js';
+import { Utils } from './utils.js';
+import { Errors } from './errors.js';
+import { Prefs, t } from './theme.js';
+import { Engine } from './engine.js';
+import { IDB } from './idb.js';
+import { UI } from './ui.js';
+import { Backup } from './backup.js';
+
 const Home = {
     init() {
         Prefs.applyTheme();
@@ -255,8 +264,5 @@ const Home = {
 };
 
 document.addEventListener('DOMContentLoaded', () => Home.init());
-
-// ES module entry point for the landing page.
-import './bootstrap.js';
 export default Home;
 export { Home };

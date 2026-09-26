@@ -1,4 +1,8 @@
 // UI helpers: toasts, modal dialogs, confirmations and prompts.
+
+import { Errors } from './errors.js';
+import { I18N } from './i18n.js';
+
 const UI = {
     toast(message, type = 'info', duration = 3200) {
         const container = document.getElementById('toast-container');

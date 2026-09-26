@@ -3,6 +3,16 @@
 // relationships, query builder, forms, CSV and JSON import/export.
 // All database logic is shared with the rest of the app through Engine / IDB /
 // Backup / Csv / RecordForm — this module only wires them to the UI.
+import './bootstrap.js';
+import { Utils } from './utils.js';
+import { Prefs, t, tp } from './theme.js';
+import { Engine } from './engine.js';
+import { IDB } from './idb.js';
+import { UI } from './ui.js';
+import { Csv } from './csv.js';
+import { Backup } from './backup.js';
+import { RecordForm } from './recordform.js';
+
 const DbCenter = {
     currentTableId: null,
     view: 'overview',      // overview | designer | data | relationships | queries | forms | csvimport
@@ -70,7 +80,6 @@ const DbCenter = {
         const homeLink = document.querySelector('.topbar a.brand');
         if (homeLink) homeLink.setAttribute('title', t('home'));
         on('btn-switch-db', 'click', () => this.switchDatabase());
-        on('btn-new-db-ws', 'click', () => this.createDatabaseFlow());
         on('btn-save', 'click', () => {
             if (!Engine.db) return;
             Engine.persist().then(() => UI.toast(t('toastSaved'), 'success'));
@@ -80,7 +89,6 @@ const DbCenter = {
         on('btn-export-json', 'click', () => this.exportCurrentDatabase());
         on('btn-import-json', 'click', () => document.getElementById('file-import-json').click());
         on('btn-theme', 'click', () => Prefs.cycleTheme());
-        on('btn-lang', 'click', () => this.toggleLanguage());
         on('btn-settings', 'click', () => this.openSettings());
         // Ctrl+F focuses the record search box from anywhere on the page.
         document.addEventListener('keydown', (e) => {
@@ -206,7 +214,6 @@ const DbCenter = {
         // forms view
         on('form-table-select', 'change', () => this.renderFormsView());
         on('form-edit-select', 'change', () => this.renderFormEditor());
-        on('btn-form-new', 'click', () => this.formNewRecord());
         on('btn-form-update', 'click', () => this.formUpdateRecord());
         on('btn-form-reset', 'click', () => this.renderFormEditor());
 
@@ -263,13 +270,18 @@ const DbCenter = {
             }
         });
 
-        Engine.on('history', () => this.updateHistoryButtons());
-        Engine.on('structure-changed', () => {
-            this.renderSidebarTables();
-            if (this.view === 'data' && this.currentTableId) this.renderDataTable(true);
-            if (this.view === 'relationships') this.renderRelationships();
-            if (this.view === 'overview') this.renderOverview();
-        });
+        if (!this._engineListeners) {
+            this._engineListeners = true;
+            this._onHistory = () => this.updateHistoryButtons();
+            this._onStructure = () => {
+                this.renderSidebarTables();
+                if (this.view === 'data' && this.currentTableId) this.renderDataTable(true);
+                if (this.view === 'relationships') this.renderRelationships();
+                if (this.view === 'overview') this.renderOverview();
+            };
+            Engine.on('history', this._onHistory);
+            Engine.on('structure-changed', this._onStructure);
+        }
     },
 
     doUndo() {
@@ -320,7 +332,8 @@ const DbCenter = {
     renderApp() {
         document.getElementById('no-database-state').hidden = true;
         document.getElementById('workspace-main').hidden = false;
-        document.getElementById('db-name-display').textContent = Engine.db.name;
+        const nameEl = document.getElementById('db-name-display') || document.getElementById('btn-switch-db');
+        if (nameEl) nameEl.textContent = Engine.db.name;
         this.renderSidebarTables();
         this.updateHistoryButtons();
         Engine.setSaveStatus('saved');
@@ -1682,7 +1695,8 @@ ap-webdb-repository-rebuild-8bb47
         UI.prompt('databaseName', Engine.db.name, 'databaseNamePlaceholder').then((name) => {
             if (!name) return;
             Engine.db.name = name;
-            document.getElementById('db-name-display').textContent = name;
+            const ne = document.getElementById('db-name-display') || document.getElementById('btn-switch-db');
+            if (ne) ne.textContent = name;
             Engine.touch();
             Engine.persist();
             UI.toast(t('toastDbRenamed'), 'success');
@@ -1709,8 +1723,11 @@ ap-webdb-repository-rebuild-8bb47
 document.addEventListener('DOMContentLoaded', () => DbCenter.init());
  ap-webdb-repository-rebuild-8bb47
 
+ ap-webdb-repository-rebuild-8bb47
+
 // ES module entry point for the Database Center page.
 import './bootstrap.js';
+ main
 export default DbCenter;
 export { DbCenter };
 
