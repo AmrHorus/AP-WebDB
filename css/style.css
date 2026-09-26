@@ -589,6 +589,26 @@ body.modal-open { overflow: hidden; }
 .footer-brand { display: flex; align-items: center; gap: 10px; }
 .footer-brand img { height: 34px; width: auto; }
 
+/* ---------- footer credit (site-wide) ---------- */
+.footer-credit {
+    width: 100%;                 /* own full-width centered line inside flex containers */
+    margin: 6px 0 0;
+    text-align: center;
+    font-size: .85rem;
+    font-weight: 600;
+    letter-spacing: .2px;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;     /* never cut off / never overflows on small screens */
+}
+.site-footer .footer-credit {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.status-bar .footer-credit {
+    font-size: inherit;
+    font-weight: 500;
+}
+
 /* ============================================================
    WORKSPACE (database.html)
    ============================================================ */
