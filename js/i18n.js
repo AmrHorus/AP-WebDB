@@ -308,6 +308,13 @@ const I18N = {
         errCsvEmpty: 'The CSV file appears to be empty.',
         errImportFile: 'Unable to import this database.',
         errImportFormat: 'The selected file is not a valid AP-WebDB database.',
+        errImportTooLarge: 'This backup contains too many databases to import.',
+        errCsvEmpty: 'The CSV file appears to be empty or has no header row.',
+        errCsvParse: 'Unable to read this CSV file.',
+        errDbInit: 'Unable to initialize local storage (IndexedDB). Another tab may be using an older version.',
+        errDbUnavailable: 'Local storage is unavailable right now. Please retry.',
+        errOffline: 'You appear to be offline. Changes will be kept locally.',
+        genericError: 'Something went wrong. Please try again.',
         errStorageFull: 'Browser storage is full or unavailable. Export a backup and clear old data.',
         errUnknown: 'Something went wrong. Please try again.',
         errRenameEmpty: 'Please enter a new name.',
@@ -723,6 +730,13 @@ const I18N = {
         errCsvEmpty: 'يبدو أن ملف CSV فارغ.',
         errImportFile: 'تعذّر استيراد قاعدة البيانات هذه.',
         errImportFormat: 'الملف المحدد ليس قاعدة بيانات AP-WebDB صالحة.',
+        errImportTooLarge: 'تحتوي هذه النسخة الاحتياطية على عدد قواعد بيانات يفوق الحد المسموح.',
+        errCsvEmpty: 'ملف CSV يبدو فارغًا أو لا يحتوي على صف عناوين.',
+        errCsvParse: 'تعذّرت قراءة ملف CSV هذا.',
+        errDbInit: 'تعذر بدء التخزين المحلي (IndexedDB). قد يكون تبويب آخر يستخدم إصدارًا أقدم.',
+        errDbUnavailable: 'التخزين المحلي غير متاح الآن. يرجى إعادة المحاولة.',
+        errOffline: 'يبدو أنك غير متصل بالإنترنت. ستُحفظ التغييرات محليًا.',
+        genericError: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
         errStorageFull: 'مساحة تخزين المتصفح ممتلئة أو غير متاحة. صدّر نسخة احتياطية ثم احذف بيانات قديمة.',
         errUnknown: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
         errRenameEmpty: 'يرجى إدخال اسم جديد.',
@@ -853,3 +867,7 @@ const I18N = {
         madeWith: 'تطبيق يعمل في المتصفح بالكامل — بلا خوادم وبلا تتبّع.'
     }
 };
+
+// ES module exports.
+export default I18N;
+export { I18N };

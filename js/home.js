@@ -37,9 +37,16 @@ const Home = {
             if (e.key === 'Escape' && !e.target.closest('input, textarea, select')) UI.closeModal();
         });
 
-        IDB.migrateFromLocalStorage().then((migrated) => {
-            if (migrated) console.info('Migrated legacy localStorage database into IndexedDB.');
-        }).finally(() => this.renderRecent());
+        // Modal close buttons (X and Cancel)
+        document.querySelectorAll('.modal [data-close]').forEach((btn) => {
+            btn.addEventListener('click', () => UI.closeModal());
+        });
+
+        Errors.guard(() => IDB.migrateFromLocalStorage(), { context: 'localStorage migration' })
+            .then((migrated) => {
+                if (migrated) console.info('Migrated legacy localStorage database into IndexedDB.');
+            })
+            .finally(() => this.renderRecent());
     },
 
     bind(id, fn) {
@@ -248,3 +255,8 @@ const Home = {
 };
 
 document.addEventListener('DOMContentLoaded', () => Home.init());
+
+// ES module entry point for the landing page.
+import './bootstrap.js';
+export default Home;
+export { Home };

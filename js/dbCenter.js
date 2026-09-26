@@ -1477,16 +1477,28 @@ const DbCenter = {
     exportTableCsv(tableId) {
         const table = Engine.getTable(tableId);
         if (!table) { UI.toast(t('errSelectTable'), 'error'); return; }
+ap-webdb-repository-rebuild-8bb47
+        Promise.resolve(Csv.exportTableAsync(table)).then((content) => {
+            Csv.download(Csv.slugify(table.name) + '.csv', content, 'text/csv');
+            UI.toast(t('toastExported'), 'success');
+        }).catch((e) => UI.handleError(e, 'errUnknown'));
+
         Csv.download(Csv.slugify(table.name) + '.csv', Csv.exportTable(table), 'text/csv');
         UI.toast(t('toastExported'), 'success');
+ main
     },
 
     importCsvIntoTable(file) {
         const tableId = this.pendingCsvTableId || document.getElementById('csv-target-table').value;
         const table = Engine.getTable(tableId);
         if (!table) { UI.toast(t('errSelectTableFirst'), 'error'); return; }
+ ap-webdb-repository-rebuild-8bb47
+        Csv.readFile(file).then(async (text) => {
+            const parsed = await Csv.parse(text);
+
         Csv.readFile(file).then((text) => {
             const parsed = Csv.parse(text);
+ main
             const known = table.fields.map((f) => f.name.toLowerCase());
             const missing = parsed.headers.filter((h) => known.indexOf(h.toLowerCase()) === -1);
             const count = Engine.appendRecords(tableId, parsed.records);
@@ -1520,8 +1532,13 @@ const DbCenter = {
         document.getElementById('csv-file').onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
+ ap-webdb-repository-rebuild-8bb47
+            Csv.readFile(file).then(async (text) => {
+                this.csvParsed = await Csv.parse(text);
+
             Csv.readFile(file).then((text) => {
                 this.csvParsed = Csv.parse(text);
+ main
                 this.renderCsvPreview();
             }).catch((e2) => UI.handleError(e2, 'errCsvParse'));
         };
@@ -1604,7 +1621,11 @@ const DbCenter = {
 
     importJsonFile(file) {
         Backup.readFile(file).then((text) => {
+ ap-webdb-repository-rebuild-8bb47
+            const dbs = Backup.parse(text); // still synchronous + fully validated
+
             const dbs = Backup.parse(text);
+ main
             return IDB.listDatabases().then((existing) => {
                 const clash = existing.find((e) =>
                     dbs.some((d) => d.id === e.id || d.name.toLowerCase() === e.name.toLowerCase()));
@@ -1686,3 +1707,11 @@ const DbCenter = {
 };
 
 document.addEventListener('DOMContentLoaded', () => DbCenter.init());
+ ap-webdb-repository-rebuild-8bb47
+
+// ES module entry point for the Database Center page.
+import './bootstrap.js';
+export default DbCenter;
+export { DbCenter };
+
+ main

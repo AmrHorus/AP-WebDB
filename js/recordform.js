@@ -165,3 +165,7 @@ const RecordForm = {
         if (this.onSave) this.onSave();
     }
 };
+
+// ES module exports.
+export default RecordForm;
+export { RecordForm };

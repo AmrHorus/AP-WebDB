@@ -1,4 +1,21 @@
-// JSON backup / restore for AP WebDB databases.
+// JSON backup / restore for AP-WebDB databases (ES Module).
+// Import path is treated as fully untrusted input: the payload is parsed,
+// deep-sanitized (prototype pollution + control chars + markup stripped),
+// schema-validated against Engine.FIELD_TYPES and size-capped before it
+// ever reaches IndexedDB.
+import Sanitize from './sanitize.js';
+import Csv from './csv.js';
+
+const MAX_DATABASES = 50;
+const MAX_TABLES_PER_DB = 200;
+const MAX_RECORDS_PER_TABLE = 100000;
+
+function userError(key) {
+    const e = new Error(key);
+    e.isUserMessage = true;
+    return e;
+}
+
 const Backup = {
     FORMAT: 'apwebdb',
 
@@ -62,8 +79,11 @@ const Backup = {
             data = JSON.parse(text);
         } catch (e) {
             console.error('JSON parse failed:', e);
-            throw new Error(t('errImportFormat'));
+            throw userError('errImportFormat');
         }
+        // Strip prototype-pollution vectors and non-finite numbers first.
+        data = Sanitize.plainObject(data);
+
         const candidates = [];
         if (data && data.format === this.FORMAT && Array.isArray(data.databases)) {
             candidates.push(...data.databases);
@@ -73,14 +93,16 @@ const Backup = {
         } else if (Array.isArray(data) && data.every((d) => d && Array.isArray(d.tables))) {
             candidates.push(...data);
         } else {
-            throw new Error(t('errImportFormat'));
+            throw userError('errImportFormat');
         }
+        if (candidates.length > MAX_DATABASES) throw userError('errImportTooLarge');
+
         const result = [];
         candidates.forEach((raw) => {
             const norm = this.normalize(raw);
             if (norm) result.push(norm);
         });
-        if (!result.length) throw new Error(t('errImportFormat'));
+        if (!result.length) throw userError('errImportFormat');
         return result;
     },
 
@@ -90,46 +112,51 @@ const Backup = {
         const db = {
             format: this.FORMAT,
             formatVersion: 2,
-            id: typeof raw.id === 'string' ? raw.id : Utils.uid(),
-            name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : t('untitled'),
-            createdAt: raw.createdAt || new Date().toISOString(),
+            id: typeof raw.id === 'string' ? Sanitize.text(raw.id, 100) : Utils.uid(),
+            name: Sanitize.stripTags(Sanitize.text(raw.name)).slice(0, 120) || t('untitled'),
+            createdAt: Sanitize.text(raw.createdAt, 40) || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             tables: [],
             relationships: []
         };
         const tableIds = {};
-        db.tables = raw.tables.map((tbl) => {
+        const incomingTables = raw.tables.slice(0, MAX_TABLES_PER_DB);
+        db.tables = incomingTables.map((tbl) => {
             if (!tbl || typeof tbl !== 'object') return null;
-            const id = typeof tbl.id === 'string' ? tbl.id : Utils.uid();
+            const id = typeof tbl.id === 'string' ? Sanitize.text(tbl.id, 100) : Utils.uid();
             tableIds[id] = true;
             const fields = Array.isArray(tbl.fields) ? tbl.fields
-                .filter((f) => f && typeof f.name === 'string' && f.name.trim())
+                .filter((f) => f && typeof f.name === 'string' && Sanitize.text(f.name))
                 .map((f) => ({
-                    name: f.name.trim(),
+                    name: Sanitize.stripTags(Sanitize.text(f.name)).slice(0, 120),
+                    // unknown field types are coerced to text, never trusted
                     type: validTypes.indexOf(f.type) !== -1 ? f.type : 'text',
                     required: !!f.required,
                     primaryKey: !!f.primaryKey
                 })) : [];
             if (!fields.some((f) => f.primaryKey) && fields.length) fields[0].primaryKey = true;
             const records = Array.isArray(tbl.records) ? tbl.records
-                .filter((r) => r && typeof r === 'object')
+                .filter((r) => r && typeof r === 'object' && !Array.isArray(r))
+                .slice(0, MAX_RECORDS_PER_TABLE)
                 .map((r) => {
+                    const src = Sanitize.record(r); // strips tags/control chars per cell
                     const clean = {};
                     fields.forEach((f) => {
-                        const v = r[f.name];
+                        const v = src[f.name];
                         if (f.type === 'boolean') clean[f.name] = v === true || v === 'true' || v === 1 || v === '1';
+                        else if (f.type === 'url') clean[f.name] = Sanitize.safeUrl(v);
                         else clean[f.name] = v === undefined || v === null ? '' : String(v);
                     });
-                    if (r._created) clean._created = String(r._created);
+                    if (src._created) clean._created = Sanitize.text(src._created, 40);
                     return clean;
                 }) : [];
             return {
                 id,
-                name: typeof tbl.name === 'string' && tbl.name.trim() ? tbl.name.trim() : t('unnamed'),
+                name: Sanitize.stripTags(Sanitize.text(tbl.name)).slice(0, 120) || t('unnamed'),
                 fields,
                 records,
-                createdAt: tbl.createdAt || db.createdAt,
-                updatedAt: tbl.updatedAt || db.updatedAt
+                createdAt: Sanitize.text(tbl.createdAt, 40) || db.createdAt,
+                updatedAt: Sanitize.text(tbl.updatedAt, 40) || db.updatedAt
             };
         }).filter(Boolean);
         // dedupe table names inside the imported db
@@ -144,24 +171,29 @@ const Backup = {
         (Array.isArray(raw.relationships) ? raw.relationships : []).forEach((r) => {
             if (!r || !tableIds[r.sourceTableId] || !tableIds[r.targetTableId]) return;
             db.relationships.push({
-                id: typeof r.id === 'string' ? r.id : Utils.uid(),
+                id: typeof r.id === 'string' ? Sanitize.text(r.id, 100) : Utils.uid(),
                 sourceTableId: r.sourceTableId,
-                sourceField: String(r.sourceField || ''),
+                sourceField: Sanitize.stripTags(Sanitize.text(r.sourceField)).slice(0, 120),
                 targetTableId: r.targetTableId,
-                targetField: String(r.targetField || ''),
-                createdAt: r.createdAt || db.createdAt
+                targetField: Sanitize.stripTags(Sanitize.text(r.targetField)).slice(0, 120),
+                createdAt: Sanitize.text(r.createdAt, 40) || db.createdAt
             });
         });
         return db;
     },
 
     // Import parsed databases into IndexedDB, replacing same-name/same-id dbs.
-    importDatabases(dbs) {
-        const tasks = dbs.map((db) => IDB.listDatabases().then((existing) => {
+    async importDatabases(dbs) {
+        const existing = await IDB.listDatabases();
+        for (const db of dbs) {
             const clash = existing.find((e) => e.id === db.id || e.name.toLowerCase() === db.name.toLowerCase());
             if (clash) db.id = clash.id; // replace in place
-            return IDB.putDatabase(db);
-        }));
-        return Promise.all(tasks).then(() => dbs);
+            await IDB.putDatabase(db);
+        }
+        return dbs;
     }
 };
+
+export default Backup;
+export { Backup };
+if (typeof window !== 'undefined') window.Backup = Backup;

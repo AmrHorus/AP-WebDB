@@ -1,0 +1,15 @@
+{
+  "name": "ap-webdb",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AP-WebDB — a lightweight, offline-first browser database management app (IndexedDB, no server).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
