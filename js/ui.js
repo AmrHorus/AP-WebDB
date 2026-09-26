@@ -154,3 +154,5 @@ const UI = {
 // ES module exports.
 export default UI;
 export { UI };
+
+if (typeof window !== 'undefined') window.UI = UI;

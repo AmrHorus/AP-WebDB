@@ -40,3 +40,5 @@ const Utils = {
 const UtilsDefault = Utils;
 export default UtilsDefault;
 export { Utils };
+
+if (typeof window !== 'undefined') window.Utils = Utils;

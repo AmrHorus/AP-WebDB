@@ -881,3 +881,5 @@ const I18N = {
 // ES module exports.
 export default I18N;
 export { I18N };
+
+if (typeof window !== 'undefined') window.I18N = I18N;

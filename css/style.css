@@ -493,6 +493,17 @@ body.modal-open { overflow: hidden; }
 .brand-name { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
 .brand-tag { font-size: .75rem; color: var(--text-muted); }
 .header-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+.header-inner .icon-btn img.theme-icon { width: 20px; height: 20px; object-fit: contain; }
+.site-footer p { margin: 4px 0; }
+.footer-langs, .footer-themes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip {
+    font: inherit; font-size: .8rem; font-weight: 600;
+    border: 1px solid var(--border-strong); border-radius: 999px;
+    background: var(--surface); color: var(--text-muted);
+    padding: 5px 12px; min-height: 32px; cursor: pointer;
+}
+.chip:hover { border-color: var(--primary); color: var(--primary); }
+.empty-state .empty-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
 
 .lang-switcher { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; }
 .lang-switcher button {

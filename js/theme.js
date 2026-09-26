@@ -168,3 +168,5 @@ if (window.matchMedia) {
 // ES module exports.
 export default Prefs;
 export { Prefs, t, tp, formatRelativeTime };
+
+if (typeof window !== 'undefined') { window.Prefs = Prefs; window.t = t; window.tp = tp; window.formatRelativeTime = formatRelativeTime; }

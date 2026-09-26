@@ -33,7 +33,7 @@ const Engine = {
         (this.listeners[event] = this.listeners[event] || []).push(fn);
     },
     off(event, fn) {
-        this._listeners[event] = (this._listeners[event] || []).filter((f) => f !== fn);
+        this.listeners[event] = (this.listeners[event] || []).filter((f) => f !== fn);
     },
     emit(event, payload) {
         (this.listeners[event] || []).forEach((fn) => fn(payload));
@@ -577,3 +577,5 @@ Engine.debouncedPersist = Utils.debounce(() => Engine.persist(), 800);
 // ES module exports.
 export default Engine;
 export { Engine };
+
+if (typeof window !== 'undefined') window.Engine = Engine;

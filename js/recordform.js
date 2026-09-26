@@ -174,3 +174,5 @@ const RecordForm = {
 // ES module exports.
 export default RecordForm;
 export { RecordForm };
+
+if (typeof window !== 'undefined') window.RecordForm = RecordForm;
