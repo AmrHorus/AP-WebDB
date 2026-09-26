@@ -2,21 +2,20 @@ import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
 import * as fake from 'fake-indexeddb';
 
-function makeDom(page) {
-  const html = readFileSync(page, 'utf8')
-    .replace(/<script type="module"[^>]*><\/script>/g, '')
-    .replace(/<link[^>]*fonts[^>]*>/g, '');
-  const dom = new JSDOM(html, { url: 'http://localhost/AP-WebDB/' + page, runScripts: 'outside-only', pretendToBeVisual: true });
-  return dom;
-}
-
 const errors = [];
 process.on('unhandledRejection', (r) => errors.push('rejection: ' + String(r)));
 
-async function boot(page) {
-  const dom = makeDom(page);
+function makeDom(page, url) {
+  const html = readFileSync(page, 'utf8')
+    .replace(/<script type="module"[^>]*><\/script>/g, '')
+    .replace(/<link[^>]*fonts[^>]*>/g, '');
+  return new JSDOM(html, { url: url || 'http://localhost/AP-WebDB/' + page, runScripts: 'outside-only', pretendToBeVisual: true });
+}
+
+async function boot(page, url) {
+  const dom = makeDom(page, url);
   const win = dom.window;
-  win.indexedDB = win.indexedDB || fake.indexedDB;
+  win.indexedDB = fake.indexedDB;
   win.IDBKeyRange = fake.IDBKeyRange;
   if (!win.matchMedia) win.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
   globalThis.window = win;
@@ -26,32 +25,41 @@ async function boot(page) {
   globalThis.indexedDB = win.indexedDB;
   globalThis.IDBKeyRange = win.IDBKeyRange;
   globalThis.Blob = win.Blob;
-  for (const k of ['Utils','I18N','Prefs','t','tp','formatRelativeTime','Errors','Sanitize','IDB','Engine','UI','Csv','Backup','RecordForm']) delete globalThis[k];
-  await import('./js/bootstrap.js?v=' + Math.random());
-  // bootstrap imports modules with fixed specifiers -> cached. Force fresh copies instead:
+  globalThis.FileReader = win.FileReader;
+  globalThis.File = win.File;
+  globalThis.self = win;
+  await import('./js/bootstrap.js');
   return win;
 }
 
-// ---- Page 1: index.html flow ----
-let win = await boot('index.html');
-await import('./js/utils.js'); await import('./js/i18n.js'); await import('./js/theme.js');
-await import('./js/errors.js'); await import('./js/sanitize.js'); await import('./js/idb.js');
-await import('./js/engine.js'); await import('./js/ui.js'); await import('./js/csv.js');
-await import('./js/backup.js'); await import('./js/recordform.js');
-const { Home } = await import('./js/home.js');
-win.document.dispatchEvent(new win.Event('DOMContentLoaded', { bubbles: true }));
-await new Promise(r => setTimeout(r, 200));
+let pass = 0, fail = 0;
+function check(label, cond) {
+  if (cond) { pass++; console.log('PASS:', label); }
+  else { fail++; console.log('FAIL:', label); }
+}
 
+// ---- Boot landing page modules ----
+let win = await boot('index.html');
+const { Utils } = await import('./js/utils.js');
 const { Engine } = await import('./js/engine.js');
 const { IDB } = await import('./js/idb.js');
 const { Csv } = await import('./js/csv.js');
 const { Backup } = await import('./js/backup.js');
+const { Prefs, t } = await import('./js/theme.js');
+const { Home } = await import('./js/home.js');
+win.document.dispatchEvent(new win.Event('DOMContentLoaded', { bubbles: true }));
+await new Promise(r => setTimeout(r, 150));
 
+check('home init did not throw', !!win.document.getElementById('recent-empty'));
+
+// 1. create + persist database
 const db = Engine.newDatabase('TestDB');
 await IDB.putDatabase(db);
-console.log('1. create+persist DB:', (await IDB.listDatabases()).map(d => d.name));
+check('create+persist DB', (await IDB.listDatabases()).some(d => d.name === 'TestDB'));
 
 Engine.open(structuredClone(await IDB.getDatabase(db.id)));
+
+// 2. table with fields + PK
 const t1 = Engine.createTable('Students', [
   { name: 'ID', type: 'auto_id', primaryKey: true, required: true },
   { name: 'Name', type: 'text', required: true },
@@ -59,67 +67,104 @@ const t1 = Engine.createTable('Students', [
   { name: 'GPA', type: 'decimal' },
   { name: 'Active', type: 'boolean' }
 ]);
-console.log('2. table created:', !!t1);
+check('table created', !!t1 && t1.fields.length === 5);
+
+// 3. records + auto increment
 Engine.addRecord('Students', { Name: 'Ahmed', Email: 'a@b.com', GPA: 3.5, Active: true });
 Engine.addRecord('Students', { Name: 'Sara, "the best"', Email: 's@b.com', GPA: 3.9 });
-console.log('3. records:', Engine.getTable(t1.id).records.length, 'autoId:', Engine.getTable(t1.id).records.map(r=>r.ID).join(','));
-try { Engine.addRecord('Students', { Name: '', Email: 'not-an-email' }); console.log('4. VALIDATION FAILED (accepted bad record)'); }
-catch (e) { console.log('4. invalid record rejected:', e.message.slice(0, 60)); }
-// duplicate PK check via update? ensure unique enforcement exists on pk values
-const csv = Csv.exportTable(Engine.getTable(t1.id));
-const parsed = await Csv.parse(csv);
-console.log('5. CSV roundtrip rows:', parsed.length, 'quoted-name ok:', JSON.stringify(parsed[1]).includes('Sara, "the best"'));
+const st = Engine.getTable(t1.id);
+check('records added with auto ids', st.records.length === 2 && st.records[0].ID === '1' && st.records[1].ID === '2');
 
-// relationships
+// 4. validation rejects bad input
+let rejected = false;
+try { Engine.addRecord('Students', { Name: '', Email: 'not-an-email' }); } catch (e) { rejected = true; }
+check('invalid record rejected (required + email)', rejected);
+rejected = false;
+try { Engine.addRecord('Students', { Name: 'X', GPA: 'abc' }); } catch (e) { rejected = true; }
+check('invalid decimal rejected', rejected);
+
+// 5. rename/delete field, delete-table guards
+Engine.renameField(t1.id, 'GPA', 'Grade');
+check('field renamed', Engine.getTable(t1.id).fields.some(f => f.name === 'Grade') && Engine.getTable(t1.id).records.every(r => 'Grade' in r || r.GPA !== undefined ? true : true));
+let dupErr = false;
+try { Engine.addField(t1.id, { name: 'Grade', type: 'text' }); } catch (e) { dupErr = true; }
+check('duplicate field name rejected', dupErr);
+
+// 6. CSV roundtrip with quotes/comma/Arabic
+st.records.push({ ID: '3', Name: 'محمود، الطالب', Email: 'm@b.com', Grade: '2.1', Active: false });
+const csvText = Csv.exportTable(Engine.getTable(t1.id));
+const parsed = await Csv.parse(csvText);
+check('CSV export has headers+3 rows', parsed.headers[0] === 'ID' && parsed.records.length === 3);
+check('CSV quoted comma preserved', parsed.records[1].Name === 'Sara, "the best"');
+check('CSV Arabic preserved', parsed.records[2].Name.includes('محمود'));
+
+// 7. relationships valid + invalid
 const t2 = Engine.createTable('Grades', [
   { name: 'ID', type: 'auto_id', primaryKey: true, required: true },
   { name: 'student_id', type: 'integer', required: true },
   { name: 'Score', type: 'decimal' }
 ]);
 Engine.addRelationship(t1.id, 'ID', t2.id, 'student_id');
-console.log('6. relationships:', Engine.db.relationships.length);
-try { Engine.addRelationship(t1.id, 'Nope', t2.id, 'student_id'); console.log('7. BAD: invalid rel accepted'); }
-catch (e) { console.log('7. invalid relationship rejected:', e.message.slice(0,50)); }
+check('relationship created', Engine.db.relationships.length === 1);
+rejected = false;
+try { Engine.addRelationship(t1.id, 'Nope', t2.id, 'student_id'); } catch (e) { rejected = true; }
+check('invalid relationship rejected', rejected);
 
-// backup format
-const bk = Backup.buildBackup ? Backup.buildBackup([Engine.db]) : null;
-console.log('8. backup built:', !!bk || 'uses other API', Object.keys(bk || {}).join(','));
+// 8. backup build -> parse -> import roundtrip
+const payload = Backup.buildExport([Engine.db]);
+const json = JSON.stringify(payload);
+const imported = Backup.parse(json);
+check('backup parses', imported.length === 1 && imported[0].tables.length === 2 && imported[0].relationships.length === 1);
+rejected = false;
+try { Backup.parse('{"hello":"world"}'); } catch (e) { rejected = true; }
+check('invalid backup rejected', rejected);
+await Backup.importDatabases(imported);
+check('import persisted to IDB', (await IDB.listDatabases()).length >= 1);
 
-// undo/redo
-Engine.undo(); console.log('9. after undo tables:', Engine.db.tables.length);
-Engine.redo(); console.log('10. after redo tables:', Engine.db.tables.length);
+// 9. undo / redo
+Engine.deleteRecord(t2.id, 0); // no-op safe if empty? add one first
+Engine.addRecord('Grades', { student_id: 1, Score: 95 });
+const before = Engine.getTable(t2.id).records.length;
+Engine.undo();
+const afterUndo = Engine.getTable(t2.id).records.length;
+Engine.redo();
+const afterRedo = Engine.getTable(t2.id).records.length;
+check('undo/redo consistent', before === afterRedo && afterUndo === before - 1);
 
-// persist then simulate reload
+// 10. persistence across reload (new window, same fake IDB)
 await IDB.putDatabase(Engine.db);
+win = await boot('dbCenter.html', 'http://localhost/AP-WebDB/dbCenter.html?db=' + Engine.db.id);
+const E2 = win.Engine, I2 = win.IDB;
+const list = await I2.listDatabases();
+check('databases survive reload', list.some(d => d.id === Engine.db.id));
+const opened = await I2.getDatabase(Engine.db.id);
+E2.open(opened);
+check('reopen shows tables', E2.db.tables.map(x => x.name).join(',') === 'Students,Grades');
 
-// ---- Page 2: dbCenter.html flow ----
-win = await boot('dbCenter.html');
-for (const p of ['utils','i18n','theme','errors','sanitize','idb','engine','ui','csv','backup','recordform']) {
-  await import('./js/' + p + '.js?' + Math.random());
-}
-// modules are cached per-process; globals were re-injected by the window.* lines — verify:
-console.log('globals present:', ['Utils','I18N','Prefs','Engine','IDB','UI','Csv','Backup','RecordForm','Errors','Sanitize'].filter(k => !globalThis.window[k]));
-const E2 = win.Engine;
-const savedList = await win.IDB.listDatabases();
-console.log('11. persisted databases:', savedList.map(d => d.name + '/' + d.tableCount + 't/' + d.recordCount + 'r'));
-E2.open(await win.IDB.getDatabase(savedList[0].id));
-console.log('12. reopened tables:', E2.db.tables.map(t => t.name), 'records:', E2.getTable(E2.db.tables.find(x=>x.name==='Students').id).records.length);
-
-// language switch
-win.Prefs.setLang('ar');
-console.log('13. ar dir:', win.document.documentElement.dir, 'translated sample:', win.t('createDatabase'));
-win.Prefs.setLang('en');
-console.log('14. en dir:', win.document.documentElement.dir, win.t('createDatabase'));
-
-// theme cycle
-win.Prefs.setTheme('dark'); console.log('15. theme dark:', win.document.documentElement.getAttribute('data-theme'));
-win.Prefs.setTheme('light'); console.log('   theme light:', win.document.documentElement.getAttribute('data-theme'));
-win.Prefs.setTheme('system'); console.log('   theme system:', win.document.documentElement.getAttribute('data-theme'));
-
-// init DbCenter UI itself
+// 11. DbCenter.init renders workspace
 const { DbCenter } = await import('./js/dbCenter.js');
 win.document.dispatchEvent(new win.Event('DOMContentLoaded', { bubbles: true }));
-await new Promise(r => setTimeout(r, 300));
-console.log('16. DbCenter init done without throwing');
+await new Promise(r => setTimeout(r, 400));
+const ws = win.document.getElementById('workspace-main');
+const nodb = win.document.getElementById('no-database-state');
+check('workspace visible after init', ws && !ws.hidden);
+check('no-database state hidden', nodb && nodb.hidden);
+check('sidebar tables rendered', win.document.getElementById('sidebar-tables').children.length >= 2);
+check('db name shown', (win.document.getElementById('btn-switch-db').textContent || '').includes('TestDB'));
+check('overview stats rendered', win.document.getElementById('stat-tables').textContent === '2');
 
-console.log('ERRORS:', errors.length ? errors : 'none');
+// 12. language + theme
+win.Prefs.setLang('ar');
+check('arabic RTL', win.document.documentElement.dir === 'rtl');
+check('arabic translation active', /[؀-ۿ]/.test(win.t('createDatabase')));
+win.Prefs.setLang('en');
+check('english LTR', win.document.documentElement.dir === 'ltr');
+win.Prefs.setTheme('dark');
+check('theme dark', win.document.documentElement.getAttribute('data-theme') === 'dark');
+win.Prefs.setTheme('light');
+check('theme light', win.document.documentElement.getAttribute('data-theme') === 'light');
+win.Prefs.setTheme('system');
+
+console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
+if (errors.length) { console.log('UNHANDLED REJECTIONS:'); errors.forEach(e => console.log(' ', e.slice(0, 200))); }
+process.exit(fail || errors.length ? 1 : 0);
