@@ -661,17 +661,9 @@
     <input type="file" id="file-import-csv" accept=".csv,text/csv" hidden>
 
     <!-- Shared modules (single engine — no duplicated database logic) -->
-    <!-- Core modules are loaded once by js/bootstrap.js (single shared engine) -->
-
-    <script src="js/utils.js"></script>
-    <script src="js/i18n.js"></script>
-    <script src="js/theme.js"></script>
-    <script src="js/idb.js"></script>
-    <script src="js/engine.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/csv.js"></script>
-    <script src="js/backup.js"></script>
-    <script src="js/recordform.js"></script>
-    <script src="js/dbCenter.js"></script>
+    <!-- Core modules are loaded once by js/bootstrap.js through the ES-module
+         entry point below. Do NOT also load them as classic <script> tags:
+         that would create a second copy of Engine/UI/state and can surface
+         "Cannot read properties of undefined" errors from mismatched globals. -->
 </body>
 </html>

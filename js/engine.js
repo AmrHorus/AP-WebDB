@@ -81,7 +81,7 @@ const Engine = {
             .catch((e) => {
                 console.error('Failed to persist database:', e);
                 this.setSaveStatus('error');
-                Errors.report(e, { context: 'Engine.persist', prefix: t('errSaveFailed') });
+                Errors.report(e, { context: 'Engine.persist', prefix: t('errorSaving') });
             });
     },
 

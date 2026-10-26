@@ -194,6 +194,32 @@ try {
     globalThis.alert = prevAlert;
 }
 check('Errors.report survives missing UI.toast', !reportThrew);
+ undefined-toast-error-5f722
+
+// 14. Regression for the deployed bundle: ui.js used to `import { Errors }
+// from './errors.js'` while errors/ui/engine form an import cycle, so a bare
+// `Errors.friendly(...)` could run before the binding was initialized and
+// abort error handling. ui.js must NOT statically import errors.js anymore.
+const uiSrc = readFileSync('js/ui.js', 'utf8');
+check('ui.js has no static import of errors.js (cycle removed)',
+      !/import\s*\{[^}]*\bErrors\b[^}]*\}\s*from\s*['"]\.\/errors\.js['"]/.test(uiSrc));
+
+// 15. UI.handleError always shows a toast even with no window.Errors present.
+win.Errors = undefined;
+let handledThrew = false;
+try { UI2.handleError(new Error('inner failure')); } catch (e) { handledThrew = true; console.log('  handleError threw:', e.message); }
+check('UI.handleError never throws without Errors global', !handledThrew);
+check('UI.handleError toasted a fallback message',
+      !!win.document.querySelector('#toast-container .toast-error'));
+win.Errors = Errs;
+
+// 16. toast() self-heals a missing #toast-container in the markup.
+const tc = win.document.getElementById('toast-container');
+tc.remove();
+UI2.toast('recreated container works', 'success');
+check('toast recreates missing container',
+      !!win.document.getElementById('toast-container')?.querySelector('.toast-success'));
+ main
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 if (errors.length) { console.log('UNHANDLED REJECTIONS:'); errors.forEach(e => console.log(' ', e.slice(0, 200))); }
