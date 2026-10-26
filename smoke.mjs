@@ -134,7 +134,16 @@ check('undo/redo consistent', before === afterRedo && afterUndo === before - 1);
 // 10. persistence across reload (new window, same fake IDB)
 await IDB.putDatabase(Engine.db);
 win = await boot('dbCenter.html', 'http://localhost/AP-WebDB/dbCenter.html?db=' + Engine.db.id);
-const E2 = win.Engine, I2 = win.IDB;
+// Import modules dynamically instead of relying on window globals: each page
+// boot swaps globalThis.window/document, so the previous win.Engine / win.IDB
+// references would point at the old window's singletons (and globals can be
+// undefined mid-bootstrap). The ES module graph is re-evaluated per boot and
+// always binds to the *current* globals.
+const { Engine: E2 } = await import('./js/engine.js');
+const { IDB: I2 } = await import('./js/idb.js');
+const { UI: UI2 } = await import('./js/ui.js');
+const { Prefs: P2, t: tr2 } = await import("./js/theme.js");
+check('UI.toast available after bootstrap', !!(UI2 && typeof UI2.toast === 'function'));
 const list = await I2.listDatabases();
 check('databases survive reload', list.some(d => d.id === Engine.db.id));
 const opened = await I2.getDatabase(Engine.db.id);
@@ -153,17 +162,38 @@ check('sidebar tables rendered', win.document.getElementById('sidebar-tables').c
 check('db name shown', (win.document.getElementById('btn-switch-db').textContent || '').includes('TestDB'));
 check('overview stats rendered', win.document.getElementById('stat-tables').textContent === '2');
 
-// 12. language + theme
-win.Prefs.setLang('ar');
+// 12. language + theme (use freshly imported modules, not stale window globals)
+P2.setLang('ar');
 check('arabic RTL', win.document.documentElement.dir === 'rtl');
-check('arabic translation active', /[؀-ۿ]/.test(win.t('createDatabase')));
-win.Prefs.setLang('en');
+check('arabic translation active', /[؀-ۿ]/.test(tr2('createDatabase')));
+P2.setLang('en');
 check('english LTR', win.document.documentElement.dir === 'ltr');
-win.Prefs.setTheme('dark');
+P2.setTheme('dark');
 check('theme dark', win.document.documentElement.getAttribute('data-theme') === 'dark');
-win.Prefs.setTheme('light');
+P2.setTheme('light');
 check('theme light', win.document.documentElement.getAttribute('data-theme') === 'light');
-win.Prefs.setTheme('system');
+P2.setTheme('system');
+
+// 13. Errors.report must never throw when UI is unavailable ("reading 'toast'")
+const { Errors: Errs } = await import('./js/errors.js');
+let reportThrew = false;
+const prevAlert = globalThis.alert;
+globalThis.alert = () => {};
+const brokenUI = win.UI;
+try {
+    // Simulate the exact crash condition: a UI object without a toast method.
+    win.UI = { /* no toast */ };
+    Errs.report(new Error('boom'), { context: 'smoke test' });
+    win.UI = undefined;
+    Errs.report(new Error('boom2'), { context: 'smoke test' });
+} catch (e) {
+    reportThrew = true;
+    console.log('  errors.report threw:', e.message);
+} finally {
+    win.UI = brokenUI;
+    globalThis.alert = prevAlert;
+}
+check('Errors.report survives missing UI.toast', !reportThrew);
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 if (errors.length) { console.log('UNHANDLED REJECTIONS:'); errors.forEach(e => console.log(' ', e.slice(0, 200))); }
