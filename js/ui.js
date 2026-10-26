@@ -1,12 +1,48 @@
 // UI helpers: toasts, modal dialogs, confirmations and prompts.
 
-import { Errors } from './errors.js';
 import { I18N } from './i18n.js';
+import { t as translateKey } from './theme.js';
+// NOTE: errors.js is NOT statically imported here. ui.js ← engine.js/errors.js
+// form an import cycle; importing back would re-introduce temporal-dead-zone
+// crashes during bootstrap. window.Errors (assigned when errors.js finishes
+// evaluating) is used lazily instead.
+
+// Minimal built-in error strings so a notification can ALWAYS be shown, even
+// if the i18n dictionary has not finished loading (early-bootstrap failures).
+const FALLBACK_EN = {
+    genericError: 'Something went wrong. Please try again.',
+    errUnknown: 'Something went wrong. Please try again.'
+};
+
+// Safe translation lookup: falls back to the dictionary directly, then to the
+// key itself, so a half-initialized i18n layer can never throw while we are
+// trying to report an error.
+function translateSafe(key) {
+    try {
+        if (typeof translateKey === 'function') return translateKey(key);
+    } catch (_) { /* mid-bootstrap: bindings may be uninitialized */ }
+    const dict = (typeof I18N !== 'undefined' && I18N && I18N.en) ||
+        ((typeof window !== 'undefined' && window.I18N && window.I18N.en) || null);
+    if (dict && dict[key]) return dict[key];
+    return FALLBACK_EN[key] || String(key);
+}
+
+// Ensure #toast-container exists even on pages that predate it or where the
+// markup failed to load — otherwise toast() would silently drop messages.
+function getToastContainer() {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.setAttribute('aria-live', 'polite');
+        document.body.appendChild(container);
+    }
+    return container;
+}
 
 const UI = {
     toast(message, type = 'info', duration = 3200) {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
+        const container = getToastContainer();
         const el = document.createElement('div');
         el.className = 'toast toast-' + type;
         el.setAttribute('role', 'status');
@@ -57,11 +93,11 @@ const UI = {
             const msgEl = document.getElementById('confirm-message');
             const okBtn = document.getElementById('btn-confirm-ok');
             const cancelBtn = document.getElementById('btn-confirm-cancel');
-            titleEl.textContent = typeof titleKey === 'string' && I18N.en[titleKey] ? t(titleKey) : titleKey;
+            titleEl.textContent = typeof titleKey === 'string' ? translateSafe(titleKey) : titleKey;
             msgEl.textContent = message;
-            okBtn.textContent = t(opts.danger !== false ? 'deleteButton' : 'confirmButton');
+            okBtn.textContent = translateSafe(opts.danger !== false ? 'deleteButton' : 'confirmButton');
             okBtn.className = 'btn ' + (opts.danger !== false ? 'btn-danger' : 'btn-primary');
-            cancelBtn.textContent = t('cancel');
+            cancelBtn.textContent = translateSafe('cancel');
             const prevHandler = modal._handler;
             if (prevHandler) {
                 okBtn.removeEventListener('click', prevHandler.ok);
@@ -90,9 +126,9 @@ const UI = {
             const okBtn = document.getElementById('btn-prompt-ok');
             const cancelBtn = document.getElementById('btn-prompt-cancel');
             const form = document.getElementById('prompt-form');
-            titleEl.textContent = typeof titleKey === 'string' && I18N.en[titleKey] ? t(titleKey) : titleKey;
+            titleEl.textContent = typeof titleKey === 'string' ? translateSafe(titleKey) : titleKey;
             input.value = value || '';
-            input.placeholder = placeholderKey ? t(placeholderKey) : '';
+            input.placeholder = placeholderKey ? translateSafe(placeholderKey) : '';
             let done = false;
             const finish = (val) => {
                 if (done) return;
@@ -113,18 +149,26 @@ const UI = {
     // Generic error display for thrown errors during user actions.
     // Delegates message selection to the centralized Errors utility so every
     // failure path (IndexedDB, import, CSV...) produces a friendly toast.
+    // Never throws: if translation lookup fails mid-bootstrap we fall back to
+    // built-in strings, so notification problems can't crash DB operations.
     handleError(err, fallbackKey) {
-        if (typeof Errors !== 'undefined') {
-            const message = fallbackKey ? t(fallbackKey) : Errors.friendly(err);
-            console.error('[AP-WebDB] UI.handleError:', err);
-            this.toast(message, 'error', 5000);
-            return;
+        const errors = (typeof window !== 'undefined' && window.Errors) || null;
+        let message;
+        try {
+            if (errors && typeof errors.friendly === 'function') {
+                message = fallbackKey ? translateSafe(fallbackKey) : errors.friendly(err);
+            } else if (fallbackKey) {
+                message = translateSafe(fallbackKey);
+            } else {
+                message = (err && err.isUserMessage && err.message)
+                    ? translateSafe(err.message)
+                    : FALLBACK_EN.genericError;
+            }
+        } catch (_) {
+            message = FALLBACK_EN.genericError;
         }
-        console.error(err);
-        const msg = err && err.message && !/^[A-Za-z ]*Error/.test(err.message.split('\n')[0])
-            ? err.message
-            : t(fallbackKey || 'errUnknown');
-        this.toast(msg, 'error');
+        console.error('[AP-WebDB] UI.handleError:', err);
+        this.toast(message || FALLBACK_EN.genericError, 'error', 5000);
     },
 
     fieldTypeLabel(type) {
@@ -141,12 +185,12 @@ const UI = {
             email: 'typeEmail',
             url: 'typeUrl'
         };
-        return keys[type] ? t(keys[type]) : type;
+        return keys[type] ? translateSafe(keys[type]) : type;
     },
 
     formatCellValue(field, value) {
         if (value === undefined || value === null || value === '') return '';
-        if (field.type === 'boolean') return value ? t('yesValue') : t('noValue');
+        if (field.type === 'boolean') return value ? translateSafe('yesValue') : translateSafe('noValue');
         return String(value);
     }
 };

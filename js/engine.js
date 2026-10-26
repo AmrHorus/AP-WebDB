@@ -81,7 +81,7 @@ const Engine = {
             .catch((e) => {
                 console.error('Failed to persist database:', e);
                 this.setSaveStatus('error');
-                Errors.report(e, { context: 'Engine.persist', prefix: t('errSaveFailed') });
+                Errors.report(e, { context: 'Engine.persist', prefix: t('errorSaving') });
             });
     },
 
@@ -519,6 +519,14 @@ const Engine = {
         }
         if (sourceTableId === targetTableId && sourceField === targetField) {
             throw new Error(t('errSameRelField'));
+        }
+        // Referential validation: both tables and both fields must exist.
+        const src = this.getTable(sourceTableId);
+        const tgt = this.getTable(targetTableId);
+        if (!src || !tgt) throw new Error(t('errSelectTable'));
+        if (!src.fields.some((f) => f.name === sourceField) ||
+            !tgt.fields.some((f) => f.name === targetField)) {
+            throw new Error(t('errUnknown') !== 'errUnknown' ? t('errUnknown') : 'Unknown field in relationship.');
         }
         const exists = this.getRelationships().some((r) =>
             r.sourceTableId === sourceTableId && r.sourceField === sourceField &&

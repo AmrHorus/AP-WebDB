@@ -2,7 +2,7 @@
 import './bootstrap.js';
 import { Utils } from './utils.js';
 import { Errors } from './errors.js';
-import { Prefs, t } from './theme.js';
+import { Prefs, t, formatRelativeTime } from './theme.js';
 import { Engine } from './engine.js';
 import { IDB } from './idb.js';
 import { UI } from './ui.js';

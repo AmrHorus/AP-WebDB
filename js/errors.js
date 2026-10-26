@@ -2,6 +2,39 @@
 // Converts raw technical errors (IndexedDB failures, quota exceeded,
 // corrupted imports...) into user-friendly localized notifications,
 // while always logging full technical details to the console.
+
+// Lazy circular-dependency-safe accessors. ui.js imports this module and
+// vice-versa, so we must never assume UI / I18N bindings exist yet when an
+// error is reported during early bootstrap; fall back gracefully instead of
+// throwing "Cannot read properties of undefined (reading 'toast')".
+//
+// ROOT-CAUSE NOTE: `typeof UI` was previously evaluated here as a *bare*
+// identifier. Because errors.js sits in a static import cycle
+// (bootstrap → engine → ui → errors), the live ES-module binding can still be
+// uninitialized when an early error is reported — reading an uninitialized
+// let/const/class binding throws its OWN ReferenceError ("Cannot access 'UI'
+// before initialization"), which aborted error handling before any guard ran.
+// We therefore never touch the bare binding: window.UI is assigned by ui.js
+// only after the object exists, so it is always safe to read.
+function getUI() {
+    if (typeof window !== 'undefined' && window.UI) return window.UI;
+    try { return (typeof UI !== 'undefined' && UI) || null; }
+    catch (_) { return null; } // TDZ during circular-import bootstrap
+}
+function getI18N() {
+    if (typeof window !== 'undefined' && window.I18N) return window.I18N;
+    try { return (typeof I18N !== 'undefined' && I18N) || null; }
+    catch (_) { return null; } // TDZ during circular-import bootstrap
+}
+function translate(key) {
+    try {
+        if (typeof t === 'function') return t(key);
+    } catch (_) { /* `t` binding may be uninitialized mid-bootstrap */ }
+    const i18n = getI18N();
+    if (i18n && i18n.en && i18n.en[key]) return i18n.en[key];
+    return String(key);
+}
+
 const Errors = {
     // Wrap an async operation with graceful failure handling.
     // Returns a promise that never rejects; on failure it resolves to null
@@ -19,39 +52,41 @@ const Errors = {
 
     // Turn any thrown value into a friendly, translated message.
     friendly(err) {
-        if (err === null || err === undefined) return t('genericError');
+        if (err === null || err === undefined) return translate('genericError');
         // Quota exceeded: name differs across browsers (exception object or DOMException)
         if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-            return t('errStorageFull');
+            return translate('errStorageFull');
         }
         if (err.name === 'DatabaseClosedError' || err.name === 'InvalidStateError') {
-            return t('errDbUnavailable');
+            return translate('errDbUnavailable');
         }
         if (err.name === 'VersionError' || /blocked|upgrade/i.test(err.message || '')) {
-            return t('errDbInit');
+            return translate('errDbInit');
         }
         if (typeof navigator !== 'undefined' && !navigator.onLine && /network|fetch/i.test(err.message || '')) {
-            return t('errOffline');
+            return translate('errOffline');
         }
         // Errors created with a translation key or a ready-made user message
-        if (err.isUserMessage || (err.message && I18N.en[err.message])) {
-            return t(err.message);
+        const i18n = getI18N();
+        if (err.isUserMessage || (err.message && i18n && i18n.en && i18n.en[err.message])) {
+            return translate(err.message);
         }
         if (err.message && String(err.message).trim()) {
             // Only surface short messages; long stack-like text goes to console only
             const msg = String(err.message);
-            return msg.length <= 200 ? msg : t('genericError');
+            return msg.length <= 200 ? msg : translate('genericError');
         }
-        return t('genericError');
+        return translate('genericError');
     },
 
     report(err, opts) {
         opts = opts || {};
         console.error('[AP-WebDB]' + (opts.context ? ' ' + opts.context + ':' : ' error:'), err);
         const message = (opts.prefix ? opts.prefix + ' — ' : '') + Errors.friendly(err);
-        if (typeof UI !== 'undefined' && UI.toast) {
-            UI.toast(message, 'error', 5000);
-        } else {
+        const ui = getUI();
+        if (ui && typeof ui.toast === 'function') {
+            ui.toast(message, 'error', 5000);
+        } else if (typeof alert === 'function') {
             alert(message); // last-resort fallback before UI module is ready
         }
     },
