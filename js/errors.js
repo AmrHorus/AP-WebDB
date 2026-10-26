@@ -4,6 +4,7 @@
 // while always logging full technical details to the console.
 
 // Lazy circular-dependency-safe accessors. ui.js imports this module and
+undefined-toast-error-5f722
 // vice-versa, so we must never assume UI / I18N bindings exist yet when an
 // error is reported during early bootstrap; fall back gracefully instead of
 // throwing "Cannot read properties of undefined (reading 'toast')".
@@ -30,6 +31,21 @@ function translate(key) {
     try {
         if (typeof t === 'function') return t(key);
     } catch (_) { /* `t` binding may be uninitialized mid-bootstrap */ }
+
+// vice-versa, so we must never assume UI / I18N globals exist yet when an
+// error is reported during early bootstrap; fall back gracefully instead of
+// throwing "Cannot read properties of undefined (reading 'toast')".
+function getUI() {
+    return (typeof UI !== 'undefined' && UI) ||
+        (typeof window !== 'undefined' && window.UI) || null;
+}
+function getI18N() {
+    return (typeof I18N !== 'undefined' && I18N) ||
+        (typeof window !== 'undefined' && window.I18N) || null;
+}
+function translate(key) {
+    if (typeof t === 'function') return t(key);
+ main
     const i18n = getI18N();
     if (i18n && i18n.en && i18n.en[key]) return i18n.en[key];
     return String(key);

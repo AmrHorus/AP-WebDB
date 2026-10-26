@@ -194,6 +194,7 @@ try {
     globalThis.alert = prevAlert;
 }
 check('Errors.report survives missing UI.toast', !reportThrew);
+ undefined-toast-error-5f722
 
 // 14. Regression for the deployed bundle: ui.js used to `import { Errors }
 // from './errors.js'` while errors/ui/engine form an import cycle, so a bare
@@ -218,6 +219,7 @@ tc.remove();
 UI2.toast('recreated container works', 'success');
 check('toast recreates missing container',
       !!win.document.getElementById('toast-container')?.querySelector('.toast-success'));
+ main
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 if (errors.length) { console.log('UNHANDLED REJECTIONS:'); errors.forEach(e => console.log(' ', e.slice(0, 200))); }
