@@ -5,7 +5,7 @@
 // Backup / Csv / RecordForm — this module only wires them to the UI.
 import './bootstrap.js';
 import { Utils } from './utils.js';
-import { Prefs, t, tp } from './theme.js';
+import { Prefs, t, tp, formatRelativeTime } from './theme.js';
 import { Engine } from './engine.js';
 import { IDB } from './idb.js';
 import { UI } from './ui.js';
